@@ -1,1 +1,9 @@
 .superpowers/
+node_modules/
+dist/
+coverage/
+.env
+!.env.example
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
