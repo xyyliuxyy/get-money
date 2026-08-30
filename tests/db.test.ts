@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import Database from 'better-sqlite3';
+import { readFileSync } from 'node:fs';
 import { createDatabaseStore, type DatabaseStore, type NewOrder } from '../src/db.js';
 
 const now = '2026-08-30T12:00:00.000Z';
@@ -164,5 +166,84 @@ describe('SQLite database store', () => {
       detail: 'payment not found',
       createdAt: now,
     })).toMatchObject({ action: 'reject', oldStatus: 'pending_review', newStatus: 'rejected' });
+  });
+
+  it.each([0, 50.5, Number.MAX_SAFE_INTEGER + 1])(
+    'rejects invalid amount fen %s at the store boundary',
+    (amountFen) => {
+      const store = createStore();
+
+      expect(() => store.createOrder(makeOrder({ amountFen }))).toThrow(/amount fen/i);
+    },
+  );
+
+  it.each([0, 50.5, Number.MAX_SAFE_INTEGER + 1])(
+    'rejects invalid amount fen %s in SQLite',
+    (amountFen) => {
+      const database = new Database(':memory:');
+      database.exec(readFileSync('migrations/001_initial.sql', 'utf8'));
+
+      try {
+        expect(() => database.prepare(`
+          INSERT INTO orders (
+            order_no, user_id, amount_fen, balance_value, payment_method,
+            status, recharge_code, created_at, expires_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          'S2P20260830SQLITE',
+          7,
+          amountFen,
+          '50',
+          'alipay_manual',
+          'awaiting_payment',
+          'manual_S2P20260830SQLITE',
+          now,
+          '2026-08-31T12:00:00.000Z',
+        )).toThrow(/CHECK constraint failed/);
+      } finally {
+        database.close();
+      }
+    },
+  );
+
+  it('canonicalizes finite Decimal balance values', () => {
+    const store = createStore();
+
+    expect(store.createOrder(makeOrder({ balanceValue: '001.2300' })).balanceValue).toBe('1.23');
+  });
+
+  it.each(['', '   ', 'NaN', 'Infinity', 'not-a-decimal'])(
+    'rejects invalid balance value %j',
+    (balanceValue) => {
+      const store = createStore();
+
+      expect(() => store.createOrder(makeOrder({ balanceValue }))).toThrow(/balance value/i);
+    },
+  );
+
+  it('redacts sensitive audit detail before storage', () => {
+    const store = createStore();
+
+    const auditLog = store.writeAuditLog({
+      adminName: 'admin',
+      action: 'approve_failed',
+      detail: 'token=jwt-secret; authorization: Bearer admin-secret; x-api-key=api-secret; password=pass; secret=internal',
+      createdAt: now,
+    });
+
+    expect(auditLog.detail).toBe('[REDACTED]');
+  });
+
+  it('bounds non-sensitive audit detail before storage', () => {
+    const store = createStore();
+
+    const auditLog = store.writeAuditLog({
+      adminName: 'admin',
+      action: 'approve_failed',
+      detail: 'x'.repeat(501),
+      createdAt: now,
+    });
+
+    expect(auditLog.detail).toBe('x'.repeat(500));
   });
 });

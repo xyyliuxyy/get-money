@@ -1,10 +1,14 @@
 import Database from 'better-sqlite3';
+import { Decimal } from 'decimal.js';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { OrderStatus } from './types.js';
 
 export type ActorType = 'user' | 'admin';
 export type RechargeOutcome = Extract<OrderStatus, 'approved' | 'recharge_failed'>;
+
+const MAX_AUDIT_DETAIL_LENGTH = 500;
+const SENSITIVE_AUDIT_DETAIL = /\b(?:token|authorization|x-api-key|password|secret)\b/i;
 
 export interface Session {
   tokenHash: string;
@@ -237,6 +241,39 @@ function optionalString(value: string | null | undefined): string | null {
   return value ?? null;
 }
 
+function validateAmountFen(amountFen: number): void {
+  if (!Number.isSafeInteger(amountFen) || amountFen <= 0) {
+    throw new Error('Invalid amount fen');
+  }
+}
+
+function normalizeBalanceValue(value: unknown): string {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new Error('Invalid balance value');
+  }
+
+  try {
+    const decimal = new Decimal(value);
+    if (!decimal.isFinite()) {
+      throw new Error('Invalid balance value');
+    }
+    return decimal.toString();
+  } catch {
+    throw new Error('Invalid balance value');
+  }
+}
+
+function sanitizeAuditDetail(value: string | null | undefined): string | null {
+  const detail = optionalString(value);
+  if (detail === null) {
+    return null;
+  }
+  if (SENSITIVE_AUDIT_DETAIL.test(detail)) {
+    return '[REDACTED]';
+  }
+  return detail.slice(0, MAX_AUDIT_DETAIL_LENGTH);
+}
+
 export function createDatabaseStore(databasePath: string): DatabaseStore {
   const db = new Database(databasePath);
   db.pragma('foreign_keys = ON');
@@ -314,13 +351,15 @@ export function createDatabaseStore(databasePath: string): DatabaseStore {
     },
 
     createOrder(input) {
+      validateAmountFen(input.amountFen);
+      const balanceValue = normalizeBalanceValue(input.balanceValue);
       insertOrder.run(
         input.orderNo,
         input.userId,
         optionalString(input.usernameSnapshot),
         optionalString(input.emailSnapshot),
         input.amountFen,
-        input.balanceValue,
+        balanceValue,
         input.paymentMethod,
         input.status,
         input.rechargeCode,
@@ -412,7 +451,7 @@ export function createDatabaseStore(databasePath: string): DatabaseStore {
         optionalString(input.newStatus),
         optionalString(input.ip),
         optionalString(input.userAgent),
-        optionalString(input.detail),
+        sanitizeAuditDetail(input.detail),
         input.createdAt,
       );
       return mapAuditLog(findAuditLog.get(result.lastInsertRowid) as AuditLogRow);

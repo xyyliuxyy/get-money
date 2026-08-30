@@ -17,7 +17,11 @@ CREATE TABLE IF NOT EXISTS orders (
   user_id INTEGER NOT NULL,
   username_snapshot TEXT,
   email_snapshot TEXT,
-  amount_fen INTEGER NOT NULL CHECK (amount_fen > 0),
+  amount_fen INTEGER NOT NULL CHECK (
+    typeof(amount_fen) = 'integer'
+    AND amount_fen > 0
+    AND amount_fen <= 9007199254740991
+  ),
   balance_value TEXT NOT NULL,
   payment_method TEXT NOT NULL,
   trade_no TEXT UNIQUE,
