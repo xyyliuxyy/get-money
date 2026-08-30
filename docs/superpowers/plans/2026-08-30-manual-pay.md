@@ -14,6 +14,7 @@
 - Use `POST /api/v1/admin/redeem-codes/create-and-redeem` with server-only `x-api-key` and `Idempotency-Key` headers.
 - Use `GET /api/v1/user/profile` to derive the real user ID. Never trust query `user_id`.
 - Keep JWTs, API keys, password hashes, and session secrets out of logs, pages, URLs after initialization, and Git.
+- Render user-facing pages, status labels, validation errors, and administrator actions in Simplified Chinese.
 - Store CNY as integer fen and balance values as Decimal strings.
 - Make `order_no`, `trade_no`, and `recharge_code` unique in SQLite.
 - Atomically claim `pending_review` or `recharge_failed` into `processing` before any recharge request.
