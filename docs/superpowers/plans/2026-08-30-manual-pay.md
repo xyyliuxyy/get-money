@@ -50,7 +50,7 @@
 - Create: `src/types.ts`, `src/config.ts`, `tests/bootstrap.test.ts`, `tests/helpers.ts`
 
 **Interfaces:**
-- Produces `npm run dev`, `npm run build`, `npm test`, and `npm run test:coverage`.
+- Produces `npm run build`, `npm test`, and `npm run test:coverage`. Task 6 adds the runnable `dev` and `start` scripts after it creates the server entry point.
 - Produces `OrderStatus`, `VerifiedProfile`, `Sub2ApiClient`, and `AppConfig` used by later tasks.
 
 - [ ] **Step 1: Write the failing configuration test**
@@ -75,7 +75,7 @@ Expected: FAIL because `src/config.ts` is absent.
 
 - [ ] **Step 3: Add tooling, dependencies, types, and sample configuration**
 
-Create an ESM `package.json` constrained to Node 20. Add `bcryptjs`, `better-sqlite3`, `cookie-parser`, `decimal.js`, `dotenv`, `ejs`, `express`, `express-rate-limit`, and `zod` as production dependencies. Add TypeScript, tsx, Vitest, Supertest, and type packages as development dependencies.
+Create an ESM `package.json` constrained to Node 20+. Add `bcryptjs`, `better-sqlite3`, `cookie-parser`, `decimal.js`, `dotenv`, `ejs`, `express`, `express-rate-limit`, and `zod` as production dependencies. Add TypeScript, tsx, Vitest 3, Supertest, and type packages as development dependencies. Do not add `dev` or `start` scripts before Task 6 creates `src/server.ts`.
 
 Use this `tsconfig.json` core configuration:
 
@@ -458,6 +458,7 @@ git commit -m "feat: add audited idempotent recharge approval"
 **Files:**
 - Create: `src/server.ts`, `views/layout.ejs`, `views/pay.ejs`, `views/orders.ejs`
 - Create: `public/app.css`, `public/pay.js`, `tests/pages.test.ts`
+- Modify: `package.json`
 
 **Interfaces:**
 - Consumes: user and administrator routers, auth middleware, and the configured QR path.
@@ -487,6 +488,17 @@ Expected: FAIL because `createApp` is absent.
 - [ ] **Step 3: Compose Express and page routes**
 
 Configure EJS, `express.urlencoded`, `express.json({ limit: '32kb' })`, cookie parsing, redacted errors, static assets, user routes, administrator routes, and `GET /health`. The error handler maps validation/auth/conflict errors to controlled JSON or pages and never returns a stack.
+
+After `src/server.ts` exists, add the runnable scripts below to `package.json`:
+
+```json
+{
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js"
+  }
+}
+```
 
 Serve the QR only through an authenticated handler using `ALIPAY_QR_IMAGE` and `image/png`; never mount the data directory as a static directory.
 
