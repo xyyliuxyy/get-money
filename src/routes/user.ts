@@ -1,6 +1,7 @@
 import express, { type Request, type Response, type Router } from 'express';
+import { ipKeyGenerator, rateLimit, type RateLimitRequestHandler } from 'express-rate-limit';
 import type { Auth } from '../auth.js';
-import type { AppConfig, Sub2ApiClient } from '../types.js';
+import type { AppConfig, RateLimitConfig, Sub2ApiClient } from '../types.js';
 import type { DatabaseStore } from '../db.js';
 import {
   cancelOrder,
@@ -17,6 +18,56 @@ export interface UserRouterOptions {
   auth: Auth;
   sub2api: Sub2ApiClient;
 }
+
+const MAX_USER_ORDER_LIST_LIMIT = 100;
+const MAX_USER_ORDER_LIST_OFFSET = Number.MAX_SAFE_INTEGER;
+
+function requestIpKey(request: Request): string {
+  return ipKeyGenerator(request.ip ?? '0.0.0.0');
+}
+
+function createIpRateLimit(config: RateLimitConfig): RateLimitRequestHandler {
+  return rateLimit({
+    windowMs: config.windowMs,
+    limit: config.max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests' },
+    keyGenerator: requestIpKey,
+  });
+}
+
+function createSessionRateLimit(config: RateLimitConfig): RateLimitRequestHandler {
+  return rateLimit({
+    windowMs: config.windowMs,
+    limit: config.max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests' },
+    keyGenerator: (request) => {
+      if (request.userSession !== undefined) return `session:${request.userSession.tokenHash}`;
+      return `ip:${requestIpKey(request)}`;
+    },
+  });
+}
+
+function parseUserOrderListInteger(
+  value: unknown,
+  name: string,
+  minimum: number,
+  maximum: number,
+): number | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new UserOrderError(400, `Invalid ${name}`);
+  }
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < minimum || parsed > maximum) {
+    throw new UserOrderError(400, `Invalid ${name}`);
+  }
+  return parsed;
+}
+
 function optionsFromArgs(
   optionsOrConfig: UserRouterOptions | AppConfig,
   store?: DatabaseStore,
@@ -57,8 +108,18 @@ export function createUserRouter(
 ): Router {
   const options = optionsFromArgs(optionsOrConfig, store, auth, sub2api);
   const router = express.Router();
+  const userAuthRateLimit = createIpRateLimit(options.config.rateLimits.userAuth);
+  const orderCreateRateLimit = createSessionRateLimit(options.config.rateLimits.orderCreate);
+  const orderSubmitRateLimit = createSessionRateLimit(options.config.rateLimits.orderSubmit);
 
-  router.get('/pay', async (request, response) => {
+  router.get('/pay', (request, response, next) => {
+    const token = typeof request.query.token === 'string' ? request.query.token : null;
+    if (token !== null && token.length > 0) {
+      userAuthRateLimit(request, response, next);
+      return;
+    }
+    next();
+  }, async (request, response) => {
     const token = typeof request.query.token === 'string' ? request.query.token : null;
     if (token !== null && token.length > 0) {
       try {
@@ -80,15 +141,15 @@ export function createUserRouter(
   router.get('/api/orders', options.auth.requireUser, (request, response) => {
     try {
       const context = sessionContext(request, options);
-      const limit = request.query.limit === undefined ? undefined : Number(request.query.limit);
-      const offset = request.query.offset === undefined ? undefined : Number(request.query.offset);
+      const limit = parseUserOrderListInteger(request.query.limit, 'limit', 1, MAX_USER_ORDER_LIST_LIMIT);
+      const offset = parseUserOrderListInteger(request.query.offset, 'offset', 0, MAX_USER_ORDER_LIST_OFFSET);
       response.json({ orders: listUserOrders({ ...context, limit, offset }) });
     } catch (error) {
       sendError(response, error);
     }
   });
 
-  router.post('/api/orders', options.auth.requireUser, options.auth.requireCsrfAndOrigin, (request, response) => {
+  router.post('/api/orders', options.auth.requireUser, options.auth.requireCsrfAndOrigin, orderCreateRateLimit, (request, response) => {
     try {
       const context = sessionContext(request, options);
       const order = createOrder({ ...context, amountCny: request.body?.amount_cny });
@@ -98,7 +159,7 @@ export function createUserRouter(
     }
   });
 
-  router.post('/api/orders/:orderNo/submit', options.auth.requireUser, options.auth.requireCsrfAndOrigin, (request, response) => {
+  router.post('/api/orders/:orderNo/submit', options.auth.requireUser, options.auth.requireCsrfAndOrigin, orderSubmitRateLimit, (request, response) => {
     try {
       const context = sessionContext(request, options);
       const order = submitPaymentProof({

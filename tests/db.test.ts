@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import Database from 'better-sqlite3';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createDatabaseStore, type DatabaseStore, type NewOrder } from '../src/db.js';
 
 const now = '2026-08-30T12:00:00.000Z';
@@ -25,10 +27,14 @@ function makeOrder(overrides: Partial<NewOrder> = {}): NewOrder {
 
 describe('SQLite database store', () => {
   const stores: DatabaseStore[] = [];
+  const temporaryDirectories: string[] = [];
 
   afterEach(() => {
     for (const store of stores.splice(0)) {
       store.close();
+    }
+    for (const directory of temporaryDirectories.splice(0)) {
+      rmSync(directory, { recursive: true, force: true });
     }
   });
 
@@ -37,6 +43,24 @@ describe('SQLite database store', () => {
     stores.push(store);
     return store;
   }
+
+  it('upgrades an existing orders table with a nullable payment note column', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'manual-pay-migration-'));
+    temporaryDirectories.push(directory);
+    const databasePath = join(directory, 'orders.sqlite');
+    const oldSchema = readFileSync('migrations/001_initial.sql', 'utf8')
+      .replace(/^  payment_note TEXT,\r?\n/m, '');
+    const legacyDatabase = new Database(databasePath);
+    legacyDatabase.exec(oldSchema);
+    legacyDatabase.close();
+
+    const store = createDatabaseStore(databasePath);
+    stores.push(store);
+    const order = store.createOrder(makeOrder());
+
+    expect(store.submitTransaction(order.orderNo, order.userId, '20260830MIGRATE', null, null, 'Legacy database proof'))
+      .toMatchObject({ paymentNote: 'Legacy database proof' });
+  });
 
   it('rejects a transaction number assigned to another order', () => {
     const store = createStore();

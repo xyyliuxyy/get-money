@@ -18,9 +18,10 @@ const config: AppConfig = {
   rateLimits: { userAuth: { windowMs: 900000, max: 10 }, orderCreate: { windowMs: 60000, max: 10 }, orderSubmit: { windowMs: 60000, max: 10 }, adminLogin: { windowMs: 900000, max: 5 } },
 };
 
-function setup() {
+function setup(rateLimits: AppConfig['rateLimits'] = config.rateLimits) {
   const store = createDatabaseStore(':memory:');
-  const auth = createAuth(config, store);
+  const routerConfig = { ...config, rateLimits };
+  const auth = createAuth(routerConfig, store);
   const profiles = new Map<string, { id: number; username: string; email: string }>([
     ['valid-user-7', { id: 7, username: 'alice', email: 'alice@example.test' }],
     ['valid-user-8', { id: 8, username: 'bob', email: 'bob@example.test' }],
@@ -37,7 +38,7 @@ function setup() {
   app.use(express.json());
   app.use(cookieParser(config.sessionSecret));
   app.get('/test-csrf', auth.requireUser, (req, res) => res.json({ csrf: req.userSession?.csrfSecret }));
-  app.use(createUserRouter({ config, store, auth, sub2api }));
+  app.use(createUserRouter({ config: routerConfig, store, auth, sub2api }));
   return { app, store };
 }
 
@@ -126,6 +127,73 @@ describe('authenticated user order flow', () => {
 
     const bob = request.agent(app); await login(bob, 'valid-user-8');
     await bob.get(`/api/orders/${orderNo}`).expect(404);
+  });
+
+  it.each([
+    'limit=NaN',
+    'limit=Infinity',
+    'limit=1.5',
+    'limit=-1',
+    'limit=101',
+    'offset=NaN',
+    'offset=Infinity',
+    'offset=1.5',
+    'offset=-1',
+    'offset=9007199254740992',
+  ])('rejects invalid user order pagination query %s', async (query) => {
+    const { app, store } = setup(); stores.push(store);
+    const agent = request.agent(app); await login(agent, 'valid-user-7');
+
+    await agent.get(`/api/orders?${query}`).expect(400);
+  });
+
+  it('rate limits token initialization by client IP', async () => {
+    const { app, store } = setup({
+      ...config.rateLimits,
+      userAuth: { windowMs: 60_000, max: 1 },
+    });
+    stores.push(store);
+
+    await request(app).get('/pay?token=valid-user-7').expect(302);
+    await request(app).get('/pay?token=valid-user-8').expect(429);
+  });
+
+  it('rate limits order creation independently for authenticated sessions', async () => {
+    const { app, store } = setup({
+      ...config.rateLimits,
+      orderCreate: { windowMs: 60_000, max: 1 },
+    });
+    stores.push(store);
+    const alice = request.agent(app); await login(alice, 'valid-user-7');
+    const bob = request.agent(app); await login(bob, 'valid-user-8');
+    const aliceCsrf = await csrfFor(alice);
+    const bobCsrf = await csrfFor(bob);
+
+    await csrfHeaders(alice, aliceCsrf).post('/api/orders').send({ amount_cny: 10 }).expect(201);
+    await csrfHeaders(bob, bobCsrf).post('/api/orders').send({ amount_cny: 10 }).expect(201);
+    await csrfHeaders(alice, aliceCsrf).post('/api/orders').send({ amount_cny: 10 }).expect(429);
+  });
+
+  it('rate limits proof submission independently for authenticated sessions', async () => {
+    const { app, store } = setup({
+      ...config.rateLimits,
+      orderSubmit: { windowMs: 60_000, max: 1 },
+    });
+    stores.push(store);
+    const alice = request.agent(app); await login(alice, 'valid-user-7');
+    const bob = request.agent(app); await login(bob, 'valid-user-8');
+    const aliceCsrf = await csrfFor(alice);
+    const bobCsrf = await csrfFor(bob);
+    const aliceFirst = await csrfHeaders(alice, aliceCsrf).post('/api/orders').send({ amount_cny: 10 }).expect(201);
+    const aliceSecond = await csrfHeaders(alice, aliceCsrf).post('/api/orders').send({ amount_cny: 50 }).expect(201);
+    const bobOrder = await csrfHeaders(bob, bobCsrf).post('/api/orders').send({ amount_cny: 10 }).expect(201);
+
+    await csrfHeaders(alice, aliceCsrf).post(`/api/orders/${aliceFirst.body.order_no}/submit`)
+      .send({ trade_no: '20260830ALICE01' }).expect(200);
+    await csrfHeaders(bob, bobCsrf).post(`/api/orders/${bobOrder.body.order_no}/submit`)
+      .send({ trade_no: '20260830BOB0001' }).expect(200);
+    await csrfHeaders(alice, aliceCsrf).post(`/api/orders/${aliceSecond.body.order_no}/submit`)
+      .send({ trade_no: '20260830ALICE02' }).expect(429);
   });
 
   it('rejects invalid tokens and mutation requests without exact origin/csrf', async () => {

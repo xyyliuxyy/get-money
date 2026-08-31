@@ -246,8 +246,38 @@ function mapAuditLog(row: AuditLogRow): AuditLog {
   };
 }
 
-function readInitialMigration(): string {
-  return readFileSync(fileURLToPath(new URL('../migrations/001_initial.sql', import.meta.url)), 'utf8');
+function readMigration(filename: string): string {
+  return readFileSync(fileURLToPath(new URL(`../migrations/${filename}`, import.meta.url)), 'utf8');
+}
+
+function migrationApplied(db: Database.Database, version: number): boolean {
+  return db.prepare('SELECT 1 FROM schema_migrations WHERE version = ?').get(version) !== undefined;
+}
+
+function hasColumn(db: Database.Database, column: string): boolean {
+  const columns = db.prepare('PRAGMA table_info(orders)').all() as Array<{ name: string }>;
+  return columns.some((entry) => entry.name === column);
+}
+
+function applyMigrations(db: Database.Database): void {
+  db.transaction(() => {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS schema_migrations (
+        version INTEGER PRIMARY KEY
+      )
+    `);
+    const markApplied = db.prepare('INSERT INTO schema_migrations (version) VALUES (?)');
+    if (!migrationApplied(db, 1)) {
+      db.exec(readMigration('001_initial.sql'));
+      markApplied.run(1);
+    }
+    if (!migrationApplied(db, 2)) {
+      if (!hasColumn(db, 'payment_note')) {
+        db.exec(readMigration('002_add_payment_note.sql'));
+      }
+      markApplied.run(2);
+    }
+  })();
 }
 
 function optionalString(value: string | null | undefined): string | null {
@@ -292,7 +322,7 @@ export function createDatabaseStore(databasePath: string): DatabaseStore {
   db.pragma('foreign_keys = ON');
   db.pragma('journal_mode = WAL');
   db.pragma('busy_timeout = 5000');
-  db.transaction(() => db.exec(readInitialMigration()))();
+  applyMigrations(db);
 
   const findSession = db.prepare(`
     SELECT * FROM sessions WHERE token_hash = ? AND expires_at > ?
