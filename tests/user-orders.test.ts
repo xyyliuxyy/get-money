@@ -15,6 +15,7 @@ const config: AppConfig = {
   adminUsername: 'admin', adminPasswordHash: 'hash', databasePath: ':memory:',
   alipayQrImage: '/assets/alipay-qr.png', rechargeAmountsFen: [1000, 5000, 50000],
   balancePerCny: new Decimal('1.5'), orderExpireHours: 24, processingStaleMinutes: 15,
+  trustProxyHops: 0,
   rateLimits: { userAuth: { windowMs: 900000, max: 10 }, orderCreate: { windowMs: 60000, max: 10 }, orderSubmit: { windowMs: 60000, max: 10 }, adminLogin: { windowMs: 900000, max: 5 } },
 };
 

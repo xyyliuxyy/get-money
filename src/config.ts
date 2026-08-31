@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { AppConfig, RateLimitConfig } from './types.js';
 
 const positiveInteger = z.coerce.number().int().positive();
+const nonNegativeInteger = z.coerce.number().int().nonnegative();
 
 const environmentSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -20,6 +21,7 @@ const environmentSchema = z.object({
   BALANCE_PER_CNY: z.string().min(1),
   ORDER_EXPIRE_HOURS: positiveInteger,
   PROCESSING_STALE_MINUTES: positiveInteger,
+  TRUST_PROXY_HOPS: nonNegativeInteger.default(0),
   USER_AUTH_RATE_LIMIT_WINDOW_MS: positiveInteger,
   USER_AUTH_RATE_LIMIT_MAX: positiveInteger,
   ORDER_CREATE_RATE_LIMIT_WINDOW_MS: positiveInteger,
@@ -86,6 +88,7 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
     balancePerCny: parseBalancePerCny(parsed.BALANCE_PER_CNY),
     orderExpireHours: parsed.ORDER_EXPIRE_HOURS,
     processingStaleMinutes: parsed.PROCESSING_STALE_MINUTES,
+    trustProxyHops: parsed.TRUST_PROXY_HOPS,
     rateLimits: {
       userAuth: rateLimit(parsed.USER_AUTH_RATE_LIMIT_WINDOW_MS, parsed.USER_AUTH_RATE_LIMIT_MAX),
       orderCreate: rateLimit(parsed.ORDER_CREATE_RATE_LIMIT_WINDOW_MS, parsed.ORDER_CREATE_RATE_LIMIT_MAX),

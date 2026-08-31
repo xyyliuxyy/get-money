@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="<%= csrfToken %>">
+    <title><%= title %> | Sub2API</title>
+    <link rel="stylesheet" href="/assets/app.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="shell header-inner">
+        <a class="brand" href="/pay" aria-label="Sub2API 人工充值">Sub2API 人工充值</a>
+        <nav aria-label="用户导航">
+          <a href="/pay"<% if (pageTemplate === 'pay') { %> aria-current="page"<% } %>>充值</a>
+          <a href="/orders"<% if (pageTemplate === 'orders') { %> aria-current="page"<% } %>>订单记录</a>
+        </nav>
+      </div>
+    </header>
+    <main class="shell page-main">
+      <%- include(pageTemplate, { user, csrfToken, orders, activeOrder, rechargeAmountsFen }) %>
+    </main>
+    <% if (pageTemplate === 'pay') { %><script type="module" src="/assets/pay.js"></script><% } %>
+  </body>
+</html>

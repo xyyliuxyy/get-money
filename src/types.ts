@@ -34,6 +34,7 @@ export interface AppConfig {
   balancePerCny: Decimal;
   orderExpireHours: number;
   processingStaleMinutes: number;
+  trustProxyHops: number;
   rateLimits: {
     userAuth: RateLimitConfig;
     orderCreate: RateLimitConfig;

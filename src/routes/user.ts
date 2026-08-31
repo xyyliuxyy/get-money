@@ -17,6 +17,7 @@ export interface UserRouterOptions {
   store: DatabaseStore;
   auth: Auth;
   sub2api: Sub2ApiClient;
+  renderPay?: (request: Request, response: Response) => void;
 }
 
 const MAX_USER_ORDER_LIST_LIMIT = 100;
@@ -133,6 +134,10 @@ export function createUserRouter(
     }
     if (!options.auth.getUserSession(request)) {
       response.status(401).json({ error: '未授权' });
+      return;
+    }
+    if (options.renderPay) {
+      options.renderPay(request, response);
       return;
     }
     response.status(200).send('支付页面');

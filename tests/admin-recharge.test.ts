@@ -72,6 +72,7 @@ function makeConfig(): AppConfig {
     balancePerCny: new Decimal(1),
     orderExpireHours: 24,
     processingStaleMinutes: 15,
+    trustProxyHops: 0,
     rateLimits: {
       userAuth: { windowMs: 900000, max: 10 },
       orderCreate: { windowMs: 60000, max: 10 },

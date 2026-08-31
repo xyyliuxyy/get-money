@@ -1,0 +1,87 @@
+<% const statusLabels = { awaiting_payment: '等待付款', pending_review: '等待人工核验', processing: '正在充值', approved: '已充值', rejected: '已拒绝', recharge_failed: '充值失败', expired: '已过期' }; %>
+<section class="page-heading" aria-labelledby="pay-title">
+  <div>
+    <p class="eyebrow">人工到账</p>
+    <h1 id="pay-title">充值</h1>
+    <p class="muted">到账前将由工作人员核验收款与交易单号。</p>
+  </div>
+  <dl class="identity" aria-label="当前账户">
+    <div><dt>账户</dt><dd><%= user.usernameSnapshot || '已验证用户' %></dd></div>
+    <% if (user.emailSnapshot) { %><div><dt>邮箱</dt><dd><%= user.emailSnapshot %></dd></div><% } %>
+  </dl>
+</section>
+
+<% if (activeOrder) { %>
+  <section class="operation-grid" aria-label="当前订单">
+    <article class="panel order-summary" data-order-no="<%= activeOrder.order_no %>" data-order-status="<%= activeOrder.status %>">
+      <div class="panel-heading">
+        <div>
+          <p class="eyebrow">当前订单</p>
+          <h2><%= activeOrder.order_no %></h2>
+        </div>
+        <span class="status status-<%= activeOrder.status %>" data-order-status-label><%= statusLabels[activeOrder.status] %></span>
+      </div>
+      <dl class="order-facts">
+        <div><dt>充值金额</dt><dd>CNY <%= activeOrder.amount_cny %></dd></div>
+        <div><dt>到账额度</dt><dd><%= activeOrder.balance_value %></dd></div>
+        <div><dt>创建时间</dt><dd><time datetime="<%= activeOrder.created_at %>"><%= new Date(activeOrder.created_at).toLocaleString('zh-CN', { hour12: false }) %></time></dd></div>
+      </dl>
+      <% if (activeOrder.status === 'awaiting_payment') { %>
+        <button class="quiet-action" type="button" data-cancel-order="<%= activeOrder.order_no %>">取消订单</button>
+      <% } %>
+      <% if (activeOrder.rejection_reason) { %><p class="inline-warning">核验说明：<%= activeOrder.rejection_reason %></p><% } %>
+    </article>
+
+    <article class="panel qr-panel">
+      <h2>Alipay 收款码</h2>
+      <img class="qr-image" src="/assets/alipay-qr.png" alt="Alipay 收款二维码">
+      <p class="muted">请按当前订单金额转账，勿修改金额或备注。</p>
+    </article>
+  </section>
+
+  <% if (activeOrder.status === 'awaiting_payment') { %>
+    <section class="panel form-panel" aria-labelledby="proof-title">
+      <div class="panel-heading">
+        <div><p class="eyebrow">付款后</p><h2 id="proof-title">提交交易单号</h2></div>
+      </div>
+      <form id="payment-proof-form" data-order-no="<%= activeOrder.order_no %>">
+        <div class="form-grid">
+          <div>
+            <label for="trade-no">Alipay 交易单号</label>
+            <input id="trade-no" name="trade_no" inputmode="text" autocomplete="off" minlength="8" maxlength="128" required>
+          </div>
+          <div>
+            <label for="payment-note">备注（可选）</label>
+            <input id="payment-note" name="note" maxlength="500" autocomplete="off">
+          </div>
+        </div>
+        <button type="submit">提交人工核验</button>
+      </form>
+    </section>
+  <% } %>
+<% } else { %>
+  <section class="panel form-panel" aria-labelledby="amount-title">
+    <div class="panel-heading">
+      <div><p class="eyebrow">新建订单</p><h2 id="amount-title">选择固定充值金额</h2></div>
+    </div>
+    <form id="order-form">
+      <fieldset class="amount-options">
+        <legend>充值金额</legend>
+        <% rechargeAmountsFen.forEach((amountFen, index) => { const amount = (amountFen / 100).toFixed(2); %>
+          <label class="amount-option" for="amount-<%= amountFen %>">
+            <input id="amount-<%= amountFen %>" name="amount_cny" type="radio" value="<%= amount %>"<% if (index === 0) { %> checked<% } %>>
+            <span>CNY <strong><%= amount %></strong></span>
+          </label>
+        <% }) %>
+      </fieldset>
+      <button type="submit">创建充值订单</button>
+    </form>
+    <p class="muted">创建订单后将显示对应金额的 Alipay 收款码。</p>
+  </section>
+<% } %>
+
+<p id="page-feedback" class="feedback" role="status" aria-live="polite"></p>
+<aside class="review-notice" aria-label="人工核验提示">
+  <strong>人工核验提示</strong>
+  <span>充值申请提交后，需要人工确认到账。请保留付款记录，未核验前不会向账户发放额度。</span>
+</aside>

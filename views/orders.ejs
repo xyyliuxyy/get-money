@@ -1,0 +1,30 @@
+<% const statusLabels = { awaiting_payment: '等待付款', pending_review: '等待人工核验', processing: '正在充值', approved: '已充值', rejected: '已拒绝', recharge_failed: '充值失败', expired: '已过期' }; %>
+<section class="page-heading" aria-labelledby="orders-title">
+  <div>
+    <p class="eyebrow">账户记录</p>
+    <h1 id="orders-title">订单记录</h1>
+    <p class="muted">仅显示当前账户创建的充值订单。</p>
+  </div>
+</section>
+
+<section class="table-wrap" aria-label="充值订单">
+  <table>
+    <thead>
+      <tr><th scope="col">订单号</th><th scope="col">金额</th><th scope="col">交易单号</th><th scope="col">状态</th><th scope="col">创建时间</th></tr>
+    </thead>
+    <tbody>
+      <% if (orders.length === 0) { %>
+        <tr><td class="empty-state" colspan="5">暂无充值订单</td></tr>
+      <% } %>
+      <% orders.forEach((order) => { %>
+        <tr>
+          <td><code><%= order.order_no %></code></td>
+          <td>CNY <%= order.amount_cny %></td>
+          <td><%= order.trade_no || '未提交' %></td>
+          <td><span class="status status-<%= order.status %>"><%= statusLabels[order.status] %></span></td>
+          <td><time datetime="<%= order.created_at %>"><%= new Date(order.created_at).toLocaleString('zh-CN', { hour12: false }) %></time></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</section>
