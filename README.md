@@ -1,5 +1,7 @@
 # Sub2API Manual Pay
 
+完整中文部署、Sub2API 配置和联调说明见 [docs/DEPLOYMENT_zh-CN.md](docs/DEPLOYMENT_zh-CN.md)。
+
 独立的个人支付宝收款码人工审核充值服务。用户身份由 Sub2API token 初始化，管理员人工核对到账后，服务端调用官方 `create-and-redeem` API 充值。它不监听支付宝通知，不抓取支付宝接口，也不修改 Sub2API 数据库。
 
 ## Start
