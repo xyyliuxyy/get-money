@@ -3,6 +3,15 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { AppConfig, VerifiedProfile } from './types.js';
 import type { DatabaseStore, Session } from './db.js';
 
+declare global {
+  namespace Express {
+    interface Request {
+      userSession?: Session;
+      adminSession?: Session;
+    }
+  }
+}
+
 export const USER_SESSION_COOKIE = 'user_session';
 export const ADMIN_SESSION_COOKIE = 'admin_session';
 
