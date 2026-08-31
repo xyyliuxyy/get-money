@@ -8,7 +8,7 @@ export type ActorType = 'user' | 'admin';
 export type RechargeOutcome = Extract<OrderStatus, 'approved' | 'recharge_failed'>;
 
 const MAX_AUDIT_DETAIL_LENGTH = 500;
-const SENSITIVE_AUDIT_DETAIL = /\b(?:token|authorization|x-api-key|password|secret)\b/i;
+const SENSITIVE_AUDIT_DETAIL = /\b(?:access[_-]?token|api[_-]?key|token|authorization|x-api-key|password|secret)\b/i;
 
 export interface Session {
   tokenHash: string;

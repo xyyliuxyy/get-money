@@ -234,6 +234,27 @@ describe('SQLite database store', () => {
     expect(auditLog.detail).toBe('[REDACTED]');
   });
 
+  it.each([
+    ['access_token', 'credential-one'],
+    ['access-token', 'credential-two'],
+    ['api_key', 'credential-three'],
+    ['api-key', 'credential-four'],
+    ['accessToken', 'credential-five'],
+    ['apiKey', 'credential-six'],
+  ])('redacts %s audit detail before storage', (identifier, credential) => {
+    const store = createStore();
+
+    const auditLog = store.writeAuditLog({
+      adminName: 'admin',
+      action: 'approve_failed',
+      detail: `${identifier}=${credential}; order=S2P20260830ORDERA`,
+      createdAt: now,
+    });
+
+    expect(auditLog.detail).toBe('[REDACTED]');
+    expect(auditLog.detail).not.toContain(credential);
+  });
+
   it('bounds non-sensitive audit detail before storage', () => {
     const store = createStore();
 
