@@ -3,7 +3,12 @@ import Database from 'better-sqlite3';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createDatabaseStore, type DatabaseStore, type NewOrder } from '../src/db.js';
+import {
+  createDatabaseStore,
+  type DatabaseStore,
+  type NewOrder,
+  type RechargeClaim,
+} from '../src/db.js';
 
 const now = '2026-08-30T12:00:00.000Z';
 const later = '2026-08-30T12:05:00.000Z';
@@ -23,6 +28,11 @@ function makeOrder(overrides: Partial<NewOrder> = {}): NewOrder {
     expiresAt: '2026-08-31T12:00:00.000Z',
     ...overrides,
   };
+}
+
+function rechargeClaim(order: { rechargeAttempts: number; processingAt: string | null }): RechargeClaim {
+  if (order.processingAt === null) throw new Error('Claimed order is missing its processing timestamp');
+  return { rechargeAttempts: order.rechargeAttempts, processingAt: order.processingAt };
 }
 
 describe('SQLite database store', () => {
@@ -122,20 +132,28 @@ describe('SQLite database store', () => {
     expect(store.findOrderForUser(order.orderNo, 8)).toBeNull();
   });
 
-  it('finishes only a claimed order without changing immutable identity fields', () => {
+  it('does not let a stale claim finish a newer retry', () => {
     const store = createStore();
     const order = makeOrder({ status: 'pending_review' });
 
     store.createOrder(order);
-    const claim = store.claimRecharge(order.orderNo, now);
-    expect(claim).not.toBeNull();
-    expect(store.finishRecharge(order.orderNo, 'approved', later, null, undefined as never)).toBeNull();
-    expect(store.finishRecharge(order.orderNo, 'approved', later, null, {
-      rechargeAttempts: claim!.rechargeAttempts,
-      processingAt: claim!.processingAt!,
-    })).toMatchObject({
+    const firstClaimedOrder = store.claimRecharge(order.orderNo, now);
+    expect(firstClaimedOrder).not.toBeNull();
+    if (firstClaimedOrder === null) throw new Error('First recharge claim failed');
+    const firstClaim = rechargeClaim(firstClaimedOrder);
+
+    expect(store.releaseStaleRecharge(order.orderNo, later, 'stale worker')).toMatchObject({
+      status: 'recharge_failed',
+    });
+    const retryClaimedOrder = store.claimRecharge(order.orderNo, later);
+    expect(retryClaimedOrder).not.toBeNull();
+    if (retryClaimedOrder === null) throw new Error('Retry recharge claim failed');
+    const retryClaim = rechargeClaim(retryClaimedOrder);
+
+    expect(store.finishRecharge(order.orderNo, 'approved', '2026-08-30T12:10:00.000Z', null, firstClaim)).toBeNull();
+    expect(store.finishRecharge(order.orderNo, 'approved', '2026-08-30T12:10:00.000Z', null, retryClaim)).toMatchObject({
       status: 'approved',
-      approvedAt: later,
+      approvedAt: '2026-08-30T12:10:00.000Z',
       userId: order.userId,
       amountFen: order.amountFen,
       rechargeCode: order.rechargeCode,

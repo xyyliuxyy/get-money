@@ -494,7 +494,6 @@ export function createDatabaseStore(databasePath: string): DatabaseStore {
     },
 
     finishRecharge(orderNo, outcome, reviewedAt, lastRechargeError, claim) {
-      if (claim === undefined) return null;
       if (finishRecharge.run(
         outcome,
         reviewedAt,
