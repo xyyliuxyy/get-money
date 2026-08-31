@@ -79,6 +79,11 @@ export interface AdminOrderListOptions {
   offset?: number;
 }
 
+export interface UserOrderListOptions {
+  limit?: number;
+  offset?: number;
+}
+
 export interface NewAuditLog {
   adminName: string;
   action: string;
@@ -101,6 +106,10 @@ export interface DatabaseStore {
   createOrder(input: NewOrder): Order;
   findByOrderNo(orderNo: string): Order | null;
   findOrderForUser(orderNo: string, userId: number): Order | null;
+  countActiveOrders(userId: number): number;
+  expireAwaitingPayment(now: string): number;
+  listUserOrders(userId: number, options?: UserOrderListOptions): Order[];
+  cancelOrder(orderNo: string, userId: number, cancelledAt: string): Order | null;
   submitTransaction(
     orderNo: string,
     userId: number,
@@ -306,6 +315,18 @@ export function createDatabaseStore(databasePath: string): DatabaseStore {
     SET trade_no = ?, paid_at = ?, submitted_at = ?, status = 'pending_review'
     WHERE order_no = ? AND user_id = ? AND status = 'awaiting_payment'
   `);
+  const countActiveOrders = db.prepare(`
+    SELECT COUNT(*) AS count FROM orders
+    WHERE user_id = ? AND status IN ('awaiting_payment', 'pending_review', 'processing', 'recharge_failed')
+  `);
+  const expireAwaitingPayment = db.prepare(`
+    UPDATE orders SET status = 'expired'
+    WHERE status = 'awaiting_payment' AND expires_at <= ?
+  `);
+  const cancelOrder = db.prepare(`
+    UPDATE orders SET status = 'expired'
+    WHERE order_no = ? AND user_id = ? AND status = 'awaiting_payment'
+  `);
   const claimRecharge = db.prepare(`
     UPDATE orders
     SET status = 'processing', processing_at = ?, recharge_attempts = recharge_attempts + 1
@@ -377,6 +398,31 @@ export function createDatabaseStore(databasePath: string): DatabaseStore {
     findOrderForUser(orderNo, userId) {
       const row = findOrderByUser.get(orderNo, userId) as OrderRow | undefined;
       return row === undefined ? null : mapOrder(row);
+    },
+
+    countActiveOrders(userId) {
+      const row = countActiveOrders.get(userId) as { count: number };
+      return row.count;
+    },
+
+    expireAwaitingPayment(now) {
+      return expireAwaitingPayment.run(now).changes;
+    },
+
+    listUserOrders(userId, options = {}) {
+      const limit = Math.min(Math.max(options.limit ?? 50, 1), 100);
+      const offset = Math.max(options.offset ?? 0, 0);
+      const rows = db.prepare(`
+        SELECT * FROM orders WHERE user_id = ?
+        ORDER BY created_at DESC, id DESC
+        LIMIT ? OFFSET ?
+      `).all(userId, limit, offset) as OrderRow[];
+      return rows.map(mapOrder);
+    },
+
+    cancelOrder(orderNo, userId, cancelledAt) {
+      if (cancelOrder.run(orderNo, userId).changes !== 1) return null;
+      return mapOrder(findOrderByNo.get(orderNo) as OrderRow);
     },
 
     submitTransaction(orderNo, userId, tradeNo, paidAt, submittedAt) {
