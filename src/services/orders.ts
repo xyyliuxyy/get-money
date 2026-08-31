@@ -147,6 +147,11 @@ export function createOrder(input: CreateOrderInput): PublicOrder {
 
 export function submitPaymentProof(input: SubmitPaymentProofInput): PublicOrder {
   const userId = requireUser(input);
+  const now = isoNow(input.paidAt);
+  input.store.expireAwaitingPayment(now);
+  const existing = input.store.findOrderForUser(input.orderNo, userId);
+  if (existing === null) throw new UserOrderError(404, '订单不存在');
+  if (existing.status !== 'awaiting_payment') throw new UserOrderError(409, '订单状态不允许提交凭证');
   if (typeof input.tradeNo !== 'string') throw new UserOrderError(400, '交易单号无效');
   const tradeNo = input.tradeNo.trim();
   if (!/^[A-Za-z0-9_-]{8,128}$/.test(tradeNo)) {
@@ -155,11 +160,6 @@ export function submitPaymentProof(input: SubmitPaymentProofInput): PublicOrder 
   if (input.note !== undefined && (typeof input.note !== 'string' || input.note.length > 500)) {
     throw new UserOrderError(400, '备注长度无效');
   }
-  const now = isoNow(input.paidAt);
-  input.store.expireAwaitingPayment(now);
-  const existing = input.store.findOrderForUser(input.orderNo, userId);
-  if (existing === null) throw new UserOrderError(404, '订单不存在');
-  if (existing.status !== 'awaiting_payment') throw new UserOrderError(409, '订单状态不允许提交凭证');
   try {
     const updated = input.store.submitTransaction(input.orderNo, userId, tradeNo, now, now);
     if (updated === null) throw new UserOrderError(409, '订单状态不允许提交凭证');

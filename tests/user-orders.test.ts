@@ -98,6 +98,7 @@ describe('authenticated user order flow', () => {
     await bob.get(`/api/orders/${orders[0]}`).expect(404);
     const bobCsrf = await csrfFor(bob);
     await csrfHeaders(bob, bobCsrf).post(`/api/orders/${orders[0]}/submit`).send({ trade_no: '20260830ABCDEF12' }).expect(404);
+    await csrfHeaders(bob, bobCsrf).post(`/api/orders/${orders[0]}/submit`).send({ trade_no: 'bad' }).expect(404);
     await csrfHeaders(alice, csrf).post(`/api/orders/${orders[0]}/submit`).send({ trade_no: '20260830ABCDEF12' }).expect(200);
     await csrfHeaders(alice, csrf).post(`/api/orders/${orders[0]}/submit`).send({ trade_no: '20260830ABCDEF13' }).expect(409);
     await csrfHeaders(alice, csrf).post(`/api/orders/${orders[1]}/cancel`).expect(200);
