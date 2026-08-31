@@ -97,6 +97,11 @@ export interface NewAuditLog {
   createdAt: string;
 }
 
+export interface RechargeClaim {
+  rechargeAttempts: number;
+  processingAt: string;
+}
+
 export interface AuditLog extends NewAuditLog {
   id: number;
 }
@@ -120,11 +125,13 @@ export interface DatabaseStore {
     paymentNote?: string | null,
   ): Order | null;
   claimRecharge(orderNo: string, processingAt: string): Order | null;
+  releaseStaleRecharge(orderNo: string, staleBefore: string, lastRechargeError: string): Order | null;
   finishRecharge(
     orderNo: string,
     outcome: RechargeOutcome,
     reviewedAt: string,
     lastRechargeError: string | null,
+    claim: RechargeClaim,
   ): Order | null;
   rejectOrder(
     orderNo: string,
@@ -366,6 +373,11 @@ export function createDatabaseStore(databasePath: string): DatabaseStore {
     SET status = 'processing', processing_at = ?, recharge_attempts = recharge_attempts + 1
     WHERE order_no = ? AND status IN ('pending_review', 'recharge_failed')
   `);
+  const releaseStaleRecharge = db.prepare(`
+    UPDATE orders
+    SET status = 'recharge_failed', last_recharge_error = ?
+    WHERE order_no = ? AND status = 'processing' AND processing_at <= ?
+  `);
   const finishRecharge = db.prepare(`
     UPDATE orders
     SET status = ?,
@@ -373,6 +385,7 @@ export function createDatabaseStore(databasePath: string): DatabaseStore {
         approved_at = CASE WHEN ? = 'approved' THEN ? ELSE NULL END,
         last_recharge_error = CASE WHEN ? = 'recharge_failed' THEN ? ELSE NULL END
     WHERE order_no = ? AND status = 'processing'
+      AND recharge_attempts = ? AND processing_at = ?
   `);
   const rejectOrder = db.prepare(`
     UPDATE orders
@@ -473,7 +486,15 @@ export function createDatabaseStore(databasePath: string): DatabaseStore {
       return mapOrder(findOrderByNo.get(orderNo) as OrderRow);
     },
 
-    finishRecharge(orderNo, outcome, reviewedAt, lastRechargeError) {
+    releaseStaleRecharge(orderNo, staleBefore, lastRechargeError) {
+      if (releaseStaleRecharge.run(lastRechargeError, orderNo, staleBefore).changes !== 1) {
+        return null;
+      }
+      return mapOrder(findOrderByNo.get(orderNo) as OrderRow);
+    },
+
+    finishRecharge(orderNo, outcome, reviewedAt, lastRechargeError, claim) {
+      if (claim === undefined) return null;
       if (finishRecharge.run(
         outcome,
         reviewedAt,
@@ -482,6 +503,8 @@ export function createDatabaseStore(databasePath: string): DatabaseStore {
         outcome,
         lastRechargeError,
         orderNo,
+        claim.rechargeAttempts,
+        claim.processingAt,
       ).changes !== 1) {
         return null;
       }

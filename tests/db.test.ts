@@ -127,10 +127,13 @@ describe('SQLite database store', () => {
     const order = makeOrder({ status: 'pending_review' });
 
     store.createOrder(order);
-    expect(store.finishRecharge(order.orderNo, 'approved', later, null)).toBeNull();
-
-    store.claimRecharge(order.orderNo, now);
-    expect(store.finishRecharge(order.orderNo, 'approved', later, null)).toMatchObject({
+    const claim = store.claimRecharge(order.orderNo, now);
+    expect(claim).not.toBeNull();
+    expect(store.finishRecharge(order.orderNo, 'approved', later, null, undefined as never)).toBeNull();
+    expect(store.finishRecharge(order.orderNo, 'approved', later, null, {
+      rechargeAttempts: claim!.rechargeAttempts,
+      processingAt: claim!.processingAt!,
+    })).toMatchObject({
       status: 'approved',
       approvedAt: later,
       userId: order.userId,
