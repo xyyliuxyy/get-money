@@ -53,6 +53,7 @@ export interface PublicOrder {
   balance_value: string;
   payment_method: string;
   trade_no: string | null;
+  payment_note: string | null;
   paid_at: string | null;
   status: Order['status'];
   created_at: string;
@@ -100,6 +101,7 @@ function publicOrder(order: Order): PublicOrder {
     balance_value: order.balanceValue,
     payment_method: order.paymentMethod,
     trade_no: order.tradeNo,
+    payment_note: order.paymentNote,
     paid_at: order.paidAt,
     status: order.status,
     created_at: order.createdAt,
@@ -161,7 +163,7 @@ export function submitPaymentProof(input: SubmitPaymentProofInput): PublicOrder 
     throw new UserOrderError(400, '备注长度无效');
   }
   try {
-    const updated = input.store.submitTransaction(input.orderNo, userId, tradeNo, now, now);
+    const updated = input.store.submitTransaction(input.orderNo, userId, tradeNo, now, now, input.note ?? null);
     if (updated === null) throw new UserOrderError(409, '订单状态不允许提交凭证');
     return publicOrder(updated);
   } catch (error) {

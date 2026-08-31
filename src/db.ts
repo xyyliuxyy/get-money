@@ -42,6 +42,7 @@ export interface Order {
   balanceValue: string;
   paymentMethod: string;
   tradeNo: string | null;
+  paymentNote: string | null;
   paidAt: string | null;
   status: OrderStatus;
   adminNote: string | null;
@@ -116,6 +117,7 @@ export interface DatabaseStore {
     tradeNo: string,
     paidAt: string | null,
     submittedAt: string | null,
+    paymentNote?: string | null,
   ): Order | null;
   claimRecharge(orderNo: string, processingAt: string): Order | null;
   finishRecharge(
@@ -157,6 +159,7 @@ interface OrderRow {
   balance_value: string;
   payment_method: string;
   trade_no: string | null;
+  payment_note: string | null;
   paid_at: string | null;
   status: OrderStatus;
   admin_note: string | null;
@@ -210,6 +213,7 @@ function mapOrder(row: OrderRow): Order {
     balanceValue: row.balance_value,
     paymentMethod: row.payment_method,
     tradeNo: row.trade_no,
+    paymentNote: row.payment_note,
     paidAt: row.paid_at,
     status: row.status,
     adminNote: row.admin_note,
@@ -312,7 +316,7 @@ export function createDatabaseStore(databasePath: string): DatabaseStore {
   `);
   const submitTransaction = db.prepare(`
     UPDATE orders
-    SET trade_no = ?, paid_at = ?, submitted_at = ?, status = 'pending_review'
+    SET trade_no = ?, payment_note = ?, paid_at = ?, submitted_at = ?, status = 'pending_review'
     WHERE order_no = ? AND user_id = ? AND status = 'awaiting_payment'
   `);
   const countActiveOrders = db.prepare(`
@@ -425,8 +429,8 @@ export function createDatabaseStore(databasePath: string): DatabaseStore {
       return mapOrder(findOrderByNo.get(orderNo) as OrderRow);
     },
 
-    submitTransaction(orderNo, userId, tradeNo, paidAt, submittedAt) {
-      if (submitTransaction.run(tradeNo, paidAt, submittedAt, orderNo, userId).changes !== 1) {
+    submitTransaction(orderNo, userId, tradeNo, paidAt, submittedAt, paymentNote = null) {
+      if (submitTransaction.run(tradeNo, paymentNote, paidAt, submittedAt, orderNo, userId).changes !== 1) {
         return null;
       }
       return mapOrder(findOrderByNo.get(orderNo) as OrderRow);

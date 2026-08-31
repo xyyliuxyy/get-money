@@ -106,6 +106,28 @@ describe('authenticated user order flow', () => {
     expect(store.findByOrderNo(orders[0])?.status).toBe('pending_review');
   });
 
+  it('persists submitted payment notes for the owner without cross-user disclosure', async () => {
+    const { app, store } = setup(); stores.push(store);
+    const alice = request.agent(app); await login(alice, 'valid-user-7');
+    const aliceCsrf = await csrfFor(alice);
+    const created = await csrfHeaders(alice, aliceCsrf)
+      .post('/api/orders').send({ amount_cny: 10 }).expect(201);
+    const orderNo = created.body.order_no as string;
+
+    const submitted = await csrfHeaders(alice, aliceCsrf)
+      .post(`/api/orders/${orderNo}/submit`)
+      .send({ trade_no: '20260830NOTE1234', note: 'Paid from my personal account' })
+      .expect(200);
+    expect(submitted.body.payment_note).toBe('Paid from my personal account');
+
+    const retrieved = await alice.get(`/api/orders/${orderNo}`).expect(200);
+    expect(retrieved.body.payment_note).toBe('Paid from my personal account');
+    expect(store.findByOrderNo(orderNo)?.paymentNote).toBe('Paid from my personal account');
+
+    const bob = request.agent(app); await login(bob, 'valid-user-8');
+    await bob.get(`/api/orders/${orderNo}`).expect(404);
+  });
+
   it('rejects invalid tokens and mutation requests without exact origin/csrf', async () => {
     const { app, store } = setup(); stores.push(store);
     await request(app).get('/pay?token=invalid').expect(401);

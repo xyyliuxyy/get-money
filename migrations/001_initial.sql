@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS orders (
   balance_value TEXT NOT NULL,
   payment_method TEXT NOT NULL,
   trade_no TEXT UNIQUE,
+  payment_note TEXT,
   paid_at TEXT,
   status TEXT NOT NULL CHECK (status IN (
     'awaiting_payment', 'pending_review', 'processing', 'approved',
