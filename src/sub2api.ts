@@ -91,7 +91,7 @@ export function createSub2ApiClient(
     } catch {
       throw new UpstreamError(0, 'network request failed');
     }
-    if (response.ok) return response;
+    if (response.status >= 200 && response.status < 300) return response;
     if (kind === 'user' && (response.status === 401 || response.status === 403)) {
       throw new UnauthorizedError();
     }
