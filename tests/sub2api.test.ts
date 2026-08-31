@@ -69,4 +69,30 @@ describe('log sanitization', () => {
     expect(sanitizeForLog({ nested: [{ password: 'p' }, { key: 'k' }], ok: true }))
       .toEqual({ nested: [{ password: '[REDACTED]' }, { key: '[REDACTED]' }], ok: true });
   });
+
+  it('redacts sensitive key components in compound names while preserving ordinary keys', () => {
+    expect(sanitizeForLog({
+      csrfSecret: 'csrf-value',
+      sessionSecret: 'session-value',
+      SESSION_SECRET: 'uppercase-session-value',
+      session_token: 'session-token-value',
+      userToken: 'user-token-value',
+      apiKey: 'api-key-value',
+      'api-key': 'hyphen-key-value',
+      authorizationHeader: 'authorization-value',
+      passwordHash: 'password-value',
+      order_no: 'S2P1',
+    })).toEqual({
+      csrfSecret: '[REDACTED]',
+      sessionSecret: '[REDACTED]',
+      SESSION_SECRET: '[REDACTED]',
+      session_token: '[REDACTED]',
+      userToken: '[REDACTED]',
+      apiKey: '[REDACTED]',
+      'api-key': '[REDACTED]',
+      authorizationHeader: '[REDACTED]',
+      passwordHash: '[REDACTED]',
+      order_no: 'S2P1',
+    });
+  });
 });

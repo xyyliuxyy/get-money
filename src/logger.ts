@@ -1,11 +1,19 @@
-const SENSITIVE_KEY = /^(?:access[_-]?token|api[_-]?key|token|authorization|x-api-key|password|secret|key)$/i;
+const SENSITIVE_KEY_COMPONENT = /(?:^|_)(?:access_token|api_key|token|authorization|password|secret|key)(?:_|$)/;
+
+function isSensitiveKey(key: string): boolean {
+  const normalized = key
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/[-]+/g, '_')
+    .toLowerCase();
+  return SENSITIVE_KEY_COMPONENT.test(normalized);
+}
 
 /** Return a copy safe to include in structured logs. */
 export function sanitizeForLog<T>(value: T): T {
   const seen = new WeakMap<object, unknown>();
 
   const sanitize = (input: unknown, key?: string): unknown => {
-    if (key !== undefined && SENSITIVE_KEY.test(key)) {
+    if (key !== undefined && isSensitiveKey(key)) {
       return '[REDACTED]';
     }
     if (input === null || typeof input !== 'object') {
