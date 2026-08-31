@@ -1,0 +1,10 @@
+.env
+.git
+.superpowers
+node_modules
+dist
+coverage
+data/*.sqlite
+data/*.png
+tests
+docs
