@@ -15,6 +15,7 @@
 - Use `GET /api/v1/user/profile` to derive the real user ID. Never trust query `user_id`.
 - Keep JWTs, API keys, password hashes, and session secrets out of logs, pages, URLs after initialization, and Git.
 - Render user-facing pages, status labels, validation errors, and administrator actions in Simplified Chinese.
+- Configure Express `trust proxy` from an explicit `TRUST_PROXY_HOPS` integer, defaulting to `1` only for the documented Nginx/Caddy deployment. Verify distinct forwarded client IPs receive distinct IP-keyed rate-limit buckets.
 - Store CNY as integer fen and balance values as Decimal strings.
 - Make `order_no`, `trade_no`, and `recharge_code` unique in SQLite.
 - Atomically claim `pending_review` or `recharge_failed` into `processing` before any recharge request.
@@ -488,6 +489,14 @@ Expected: FAIL because `createApp` is absent.
 - [ ] **Step 3: Compose Express and page routes**
 
 Configure EJS, `express.urlencoded`, `express.json({ limit: '32kb' })`, cookie parsing, redacted errors, static assets, user routes, administrator routes, and `GET /health`. The error handler maps validation/auth/conflict errors to controlled JSON or pages and never returns a stack.
+
+Parse `TRUST_PROXY_HOPS` as a non-negative integer in `src/config.ts` and configure it before mounting any rate-limited route:
+
+```ts
+app.set('trust proxy', config.trustProxyHops);
+```
+
+Add an integration test with `trust proxy = 1` and different `X-Forwarded-For` values proving the token-initialization rate limiter treats the clients as distinct. Never set `trust proxy` to `true` or trust arbitrary forwarded headers.
 
 After `src/server.ts` exists, add the runnable scripts below to `package.json`:
 
