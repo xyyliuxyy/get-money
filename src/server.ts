@@ -124,6 +124,15 @@ export function createApp(dependencies: AppDependencies) {
   app.get('/orders', dependencies.auth.requireUser, (request, response) => {
     renderUserPage(request, response, dependencies, 'orders');
   });
+  app.get('/admin/login', (_request, response) => response.render('admin-login', { title: '管理员登录' }));
+  app.get('/admin', (request, response) => {
+    const session = request.adminSession ?? dependencies.auth.getAdminSession(request);
+    if (session === null || session === undefined) {
+      response.redirect(302, '/admin/login');
+      return;
+    }
+    response.render('admin-orders', { title: '充值审核', csrfToken: session.csrfSecret });
+  });
   app.use(createAdminRouter(dependencies));
 
   app.use((request, response) => {
