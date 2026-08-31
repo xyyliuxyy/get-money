@@ -42,7 +42,9 @@ function sendError(response: Response, error: unknown): void {
   const status = typeof error === 'object' && error !== null && 'status' in error
     && typeof (error as { status?: unknown }).status === 'number'
     ? (error as { status: number }).status : 500;
-  if (status === 401) response.status(401).json({ error: '身份验证失败' });
+  if (status === 401 || (error instanceof Error && /unauthorized|未授权/i.test(error.message))) {
+    response.status(401).json({ error: '身份验证失败' });
+  }
   else if (status >= 400 && status < 500) response.status(status).json({ error: '请求无效' });
   else response.status(502).json({ error: '上游服务暂不可用' });
 }

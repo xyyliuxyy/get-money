@@ -28,7 +28,7 @@ function setup() {
   const sub2api: Sub2ApiClient = {
     verifyUserToken: async (token) => {
       const profile = profiles.get(token);
-      if (!profile) throw Object.assign(new Error('Unauthorized'), { status: 401 });
+      if (!profile) throw new Error('Unauthorized');
       return profile;
     },
     createAndRedeem: async () => undefined,
