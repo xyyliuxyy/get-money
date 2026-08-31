@@ -99,7 +99,7 @@ export function createAuth(
 
   const requireActor = (actorType: 'user' | 'admin'): RequestHandler => (request, response, next) => {
     const session = readSession(request, actorType);
-    if (session === null || session.actorType !== actorType) {
+    if (session === null || session.actorType !== actorType || (actorType === 'user' && session.userId === null)) {
       response.sendStatus(401);
       return;
     }
