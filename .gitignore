@@ -1,4 +1,5 @@
 .superpowers/
+data/*.png
 node_modules/
 dist/
 coverage/
