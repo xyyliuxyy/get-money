@@ -57,6 +57,12 @@ export interface Order {
   approvedAt: string | null;
   rejectedAt: string | null;
   expiresAt: string;
+  externalOrderNo: string | null;
+  notifyUrl: string | null;
+  returnUrl: string | null;
+  externalTradeNo: string | null;
+  callbackStatus: string;
+  callbackAttempts: number;
 }
 
 export interface NewOrder {
@@ -71,6 +77,9 @@ export interface NewOrder {
   rechargeCode: string;
   createdAt: string;
   expiresAt: string;
+  externalOrderNo?: string | null;
+  notifyUrl?: string | null;
+  returnUrl?: string | null;
 }
 
 export interface AdminOrderListOptions {
@@ -111,6 +120,7 @@ export interface DatabaseStore {
   getSession(tokenHash: string, now: string): Session | null;
   createOrder(input: NewOrder): Order;
   findByOrderNo(orderNo: string): Order | null;
+  findByExternalOrderNo(externalOrderNo: string): Order | null;
   findOrderForUser(orderNo: string, userId: number): Order | null;
   countActiveOrders(userId: number): number;
   expireAwaitingPayment(now: string): number;
@@ -139,6 +149,8 @@ export interface DatabaseStore {
     adminNote: string | null,
     reviewedAt: string,
   ): Order | null;
+  markEasyPayPaid(orderNo: string, externalTradeNo: string, paidAt: string): Order | null;
+  recordEasyPayCallbackAttempt(orderNo: string, status: string): Order | null;
   listAdminOrders(options?: AdminOrderListOptions): Order[];
   writeAuditLog(input: NewAuditLog): AuditLog;
   transaction<T>(operation: () => T): T;
@@ -181,6 +193,12 @@ interface OrderRow {
   approved_at: string | null;
   rejected_at: string | null;
   expires_at: string;
+  external_order_no: string | null;
+  notify_url: string | null;
+  return_url: string | null;
+  external_trade_no: string | null;
+  callback_status: string;
+  callback_attempts: number;
 }
 
 interface AuditLogRow {
@@ -235,6 +253,12 @@ function mapOrder(row: OrderRow): Order {
     approvedAt: row.approved_at,
     rejectedAt: row.rejected_at,
     expiresAt: row.expires_at,
+    externalOrderNo: row.external_order_no ?? null,
+    notifyUrl: row.notify_url ?? null,
+    returnUrl: row.return_url ?? null,
+    externalTradeNo: row.external_trade_no ?? null,
+    callbackStatus: row.callback_status ?? 'pending',
+    callbackAttempts: row.callback_attempts ?? 0,
   };
 }
 
@@ -283,6 +307,10 @@ function applyMigrations(db: Database.Database): void {
         db.exec(readMigration('002_add_payment_note.sql'));
       }
       markApplied.run(2);
+    }
+    if (!migrationApplied(db, 3)) {
+      db.exec(readMigration('003_add_easypay_fields.sql'));
+      markApplied.run(3);
     }
   })();
 }
@@ -336,6 +364,7 @@ export function createDatabaseStore(databasePath: string): DatabaseStore {
   `);
   const findSessionByHash = db.prepare('SELECT * FROM sessions WHERE token_hash = ?');
   const findOrderByNo = db.prepare('SELECT * FROM orders WHERE order_no = ?');
+  const findOrderByExternalNo = db.prepare('SELECT * FROM orders WHERE external_order_no = ?');
   const findOrderByUser = db.prepare('SELECT * FROM orders WHERE order_no = ? AND user_id = ?');
   const findAuditLog = db.prepare('SELECT * FROM admin_audit_logs WHERE id = ?');
 
@@ -348,8 +377,9 @@ export function createDatabaseStore(databasePath: string): DatabaseStore {
   const insertOrder = db.prepare(`
     INSERT INTO orders (
       order_no, user_id, username_snapshot, email_snapshot, amount_fen,
-      balance_value, payment_method, status, recharge_code, created_at, expires_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      balance_value, payment_method, status, recharge_code, created_at, expires_at,
+      external_order_no, notify_url, return_url
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const submitTransaction = db.prepare(`
     UPDATE orders
@@ -433,12 +463,20 @@ export function createDatabaseStore(databasePath: string): DatabaseStore {
         input.rechargeCode,
         input.createdAt,
         input.expiresAt,
+        optionalString(input.externalOrderNo),
+        optionalString(input.notifyUrl),
+        optionalString(input.returnUrl),
       );
       return mapOrder(findOrderByNo.get(input.orderNo) as OrderRow);
     },
 
     findByOrderNo(orderNo) {
       const row = findOrderByNo.get(orderNo) as OrderRow | undefined;
+      return row === undefined ? null : mapOrder(row);
+    },
+
+    findByExternalOrderNo(externalOrderNo) {
+      const row = findOrderByExternalNo.get(externalOrderNo) as OrderRow | undefined;
       return row === undefined ? null : mapOrder(row);
     },
 
@@ -514,6 +552,26 @@ export function createDatabaseStore(databasePath: string): DatabaseStore {
       if (rejectOrder.run(rejectionReason, adminNote, reviewedAt, reviewedAt, orderNo).changes !== 1) {
         return null;
       }
+      return mapOrder(findOrderByNo.get(orderNo) as OrderRow);
+    },
+
+    markEasyPayPaid(orderNo, externalTradeNo, paidAt) {
+      const result = db.prepare(`
+        UPDATE orders
+        SET status = 'approved', external_trade_no = ?, paid_at = ?, reviewed_at = ?, approved_at = ?
+        WHERE order_no = ? AND payment_method = 'easypay_alipay'
+          AND status IN ('awaiting_payment', 'pending_review', 'processing', 'recharge_failed')
+      `).run(externalTradeNo, paidAt, paidAt, paidAt, orderNo);
+      if (result.changes !== 1) return null;
+      return mapOrder(findOrderByNo.get(orderNo) as OrderRow);
+    },
+
+    recordEasyPayCallbackAttempt(orderNo, status) {
+      const result = db.prepare(`
+        UPDATE orders SET callback_status = ?, callback_attempts = callback_attempts + 1
+        WHERE order_no = ? AND payment_method = 'easypay_alipay'
+      `).run(status, orderNo);
+      if (result.changes !== 1) return null;
       return mapOrder(findOrderByNo.get(orderNo) as OrderRow);
     },
 
