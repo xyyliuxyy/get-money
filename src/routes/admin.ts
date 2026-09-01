@@ -90,6 +90,9 @@ function publicOrder(order: Order) {
     reviewed_at: order.reviewedAt,
     approved_at: order.approvedAt,
     rejected_at: order.rejectedAt,
+    external_order_no: order.externalOrderNo,
+    callback_status: order.callbackStatus,
+    callback_attempts: order.callbackAttempts,
   };
 }
 
