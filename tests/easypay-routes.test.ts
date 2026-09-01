@@ -1,7 +1,7 @@
 import express from 'express';
 import request from 'supertest';
 import { Decimal } from 'decimal.js';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createDatabaseStore } from '../src/db.js';
 import { buildEasyPaySign } from '../src/easypay.js';
 import { createEasyPayRouter } from '../src/routes/easypay.js';
@@ -44,6 +44,19 @@ describe('EasyPay routes', () => {
     const { app, store } = appFor({ enabled: false });
     const response = await request(app).post('/mapi.php').type('form').send(createBody()).expect(503);
     expect(response.body).toMatchObject({ code: 0 });
+    store.close();
+  });
+
+  it('accepts a signed payment notification and forwards success', async () => {
+    const { app, store } = appFor();
+    const created = await request(app).post('/mapi.php').type('form').send(createBody()).expect(200);
+    const params = { pid: '10001', out_trade_no: 'SUB-ROUTE-1', trade_no: 'ALIPAY-ROUTE-1', money: '20.00', trade_status: 'SUCCESS' };
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('success', { status: 200 })));
+    const notified = await request(app).post('/notify.php').type('form').send({ ...params, sign: buildEasyPaySign(params, 'shared'), sign_type: 'MD5' }).expect(200);
+    expect(notified.text).toBe('success');
+    expect(store.findByExternalOrderNo('SUB-ROUTE-1')).toMatchObject({ status: 'approved', externalTradeNo: 'ALIPAY-ROUTE-1' });
+    expect(created.body.trade_no).toBeTruthy();
+    vi.unstubAllGlobals();
     store.close();
   });
 });

@@ -72,3 +72,21 @@ export async function retryEasyPayNotification(input: {
   }
   return sendCallback({ config: input.config, store: input.store, order, fetchImpl: input.fetchImpl ?? fetch });
 }
+
+export async function handleEasyPayNotification(input: {
+  config: AppConfig;
+  store: DatabaseStore;
+  orderNo: string;
+  externalTradeNo: string;
+  fetchImpl?: FetchLike;
+  now?: Date;
+}): Promise<Order> {
+  const existing = input.store.findByOrderNo(input.orderNo);
+  if (existing === null) throw new EasyPayCallbackError(404, 'Order not found');
+  if (existing.status === 'approved' && existing.externalTradeNo === input.externalTradeNo) {
+    return sendCallback({ config: input.config, store: input.store, order: existing, fetchImpl: input.fetchImpl ?? fetch });
+  }
+  const paid = input.store.markEasyPayPaid(input.orderNo, input.externalTradeNo, (input.now ?? new Date()).toISOString());
+  if (paid === null) throw new EasyPayCallbackError(409, 'Order state does not allow payment notification');
+  return sendCallback({ config: input.config, store: input.store, order: paid, fetchImpl: input.fetchImpl ?? fetch });
+}
