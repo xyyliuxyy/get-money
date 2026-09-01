@@ -7,6 +7,7 @@ import { createAuth, type Auth } from './auth.js';
 import { parseConfig } from './config.js';
 import { createDatabaseStore, type DatabaseStore, type Session } from './db.js';
 import { createAdminRouter } from './routes/admin.js';
+import { createEasyPayRouter } from './routes/easypay.js';
 import { createUserRouter } from './routes/user.js';
 import { ACTIVE_ORDER_STATUSES, listUserOrders, type PublicOrder } from './services/orders.js';
 import { createSub2ApiClient } from './sub2api.js';
@@ -116,6 +117,8 @@ export function createApp(dependencies: AppDependencies) {
   app.get('/health', (_request, response) => response.json({ ok: true }));
   app.get('/assets/alipay-qr.png', privateQrHandler(dependencies));
   app.use('/assets', express.static(publicDirectory, { fallthrough: true }));
+
+  app.use(createEasyPayRouter({ config: dependencies.config, store: dependencies.store }));
 
   app.use(createUserRouter({
     ...dependencies,
