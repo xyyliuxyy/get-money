@@ -29,7 +29,7 @@ Sub2API: https://home.niuniu-ai.top
 将本项目上传或 clone 到服务器，例如：
 
 ```bash
-git clone <your-repository-url> /opt/manual-pay
+git clone git@github.com:xyyliuxyy/get-money.git /opt/manual-pay
 cd /opt/manual-pay
 mkdir -p data
 cp .env.example .env
@@ -206,3 +206,20 @@ POST /api/v1/admin/redeem-codes/create-and-redeem
 - 如果批准后显示 Admin API Key 错误，检查 `SUB2API_ADMIN_API_KEY`、`SUB2API_BASE_URL` 和 Sub2API 端的 Key 权限。
 - `recharge_failed` 表示已人工确认收款但上游调用失败；在后台点击“重试充值”，不要重新创建订单。
 - 不要把个人支付宝二维码伪装成支付宝商户 API；本服务仅支持人工核账。
+
+## EasyPay 兼容模式
+
+配置以下环境变量后，Sub2API 可以把本服务配置为 EasyPay 服务商：
+
+```dotenv
+EASYPAY_ENABLED=true
+EASYPAY_PID=10001
+EASYPAY_KEY=change-this-shared-key
+EASYPAY_QR_URL=https://pay.example.com/assets/alipay-qr.png
+```
+
+接口包括 `POST /mapi.php`（创建订单）、`POST /api.php`（查询订单）和
+`POST /notify.php`（签名到账通知）。二维码地址必须能被外部支付页面直接访问。
+EasyPay 订单仍由管理员确认到账，确认后服务向 `notify_url` 发送成功通知，不会调用
+旧的 `create-and-redeem` 流程。本项目不抓取支付宝页面；如有自动到账检测组件，可在
+确认金额和订单匹配后调用 `/notify.php`。
