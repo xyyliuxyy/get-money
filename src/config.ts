@@ -1,6 +1,7 @@
 import { Decimal } from 'decimal.js';
 import { z } from 'zod';
 import type { AppConfig, RateLimitConfig } from './types.js';
+import type { EasyPayConfig } from './easypay.js';
 
 const positiveInteger = z.coerce.number().int().positive();
 const nonNegativeInteger = z.coerce.number().int().nonnegative();
@@ -30,6 +31,10 @@ const environmentSchema = z.object({
   ORDER_SUBMIT_RATE_LIMIT_MAX: positiveInteger,
   ADMIN_LOGIN_RATE_LIMIT_WINDOW_MS: positiveInteger,
   ADMIN_LOGIN_RATE_LIMIT_MAX: positiveInteger,
+  EASYPAY_ENABLED: z.enum(['true', 'false']).default('false'),
+  EASYPAY_PID: z.string().default(''),
+  EASYPAY_KEY: z.string().default(''),
+  EASYPAY_QR_URL: z.string().default(''),
 });
 
 function parseRechargeAmounts(rechargeAmounts: string): number[] {
@@ -71,6 +76,15 @@ function rateLimit(windowMs: number, max: number): RateLimitConfig {
 
 export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
   const parsed = environmentSchema.parse(env);
+  const easyPay: EasyPayConfig = {
+    enabled: parsed.EASYPAY_ENABLED === 'true',
+    pid: parsed.EASYPAY_PID,
+    key: parsed.EASYPAY_KEY,
+    qrUrl: parsed.EASYPAY_QR_URL,
+  };
+  if (easyPay.enabled && (!easyPay.pid || !easyPay.key || !easyPay.qrUrl)) {
+    throw new Error('EasyPay requires EASYPAY_PID, EASYPAY_KEY, and EASYPAY_QR_URL');
+  }
 
   return {
     nodeEnv: parsed.NODE_ENV,
@@ -95,5 +109,6 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
       orderSubmit: rateLimit(parsed.ORDER_SUBMIT_RATE_LIMIT_WINDOW_MS, parsed.ORDER_SUBMIT_RATE_LIMIT_MAX),
       adminLogin: rateLimit(parsed.ADMIN_LOGIN_RATE_LIMIT_WINDOW_MS, parsed.ADMIN_LOGIN_RATE_LIMIT_MAX),
     },
+    easyPay,
   };
 }

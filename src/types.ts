@@ -1,4 +1,5 @@
 import type { Decimal } from 'decimal.js';
+import type { EasyPayConfig } from './easypay.js';
 
 export type OrderStatus =
   | 'awaiting_payment' | 'pending_review' | 'processing'
@@ -41,4 +42,5 @@ export interface AppConfig {
     orderSubmit: RateLimitConfig;
     adminLogin: RateLimitConfig;
   };
+  easyPay?: EasyPayConfig;
 }
