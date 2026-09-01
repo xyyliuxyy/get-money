@@ -4,6 +4,7 @@ import { ipKeyGenerator, rateLimit, type RateLimitRequestHandler } from 'express
 import type { Auth } from '../auth.js';
 import type { DatabaseStore, Order } from '../db.js';
 import { approveOrder, AdminReviewError, rejectOrder, retryOrder } from '../services/recharge.js';
+import { approveEasyPayOrder, retryEasyPayNotification } from '../services/easypay-notify.js';
 import type { AppConfig, RateLimitConfig, Sub2ApiClient } from '../types.js';
 import type { OrderStatus } from '../types.js';
 
@@ -187,6 +188,14 @@ export function createAdminRouter(
 
   const recharge = (action: 'approve' | 'retry') => async (request: Request, response: Response) => {
     try {
+      const existing = options.store.findByOrderNo(String(request.params.orderNo));
+      if (existing?.paymentMethod === 'easypay_alipay') {
+        const order = action === 'approve'
+          ? await approveEasyPayOrder({ config: options.config, store: options.store, orderNo: existing.orderNo })
+          : await retryEasyPayNotification({ config: options.config, store: options.store, orderNo: existing.orderNo });
+        response.json(publicOrder(order));
+        return;
+      }
       const input = {
         ...adminContext(request, options),
         sub2api: options.sub2api,
