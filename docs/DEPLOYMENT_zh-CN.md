@@ -215,7 +215,7 @@ POST /api/v1/admin/redeem-codes/create-and-redeem
 EASYPAY_ENABLED=true
 EASYPAY_PID=10001
 EASYPAY_KEY=change-this-shared-key
-EASYPAY_QR_URL=https://pay.example.com/assets/alipay-qr.png
+EASYPAY_QR_URL=https://static.example.com/alipay-qr.png
 ```
 
 接口包括 `POST /mapi.php`（创建订单）、`POST /api.php`（查询订单）和
@@ -223,3 +223,24 @@ EASYPAY_QR_URL=https://pay.example.com/assets/alipay-qr.png
 EasyPay 订单仍由管理员确认到账，确认后服务向 `notify_url` 发送成功通知，不会调用
 旧的 `create-and-redeem` 流程。本项目不抓取支付宝页面；如有自动到账检测组件，可在
 确认金额和订单匹配后调用 `/notify.php`。
+
+### Sub2API 后台配置
+
+在 Sub2API 管理后台进入“设置 → 支付设置”：
+
+1. 开启“启用支付”，设置金额范围和订单超时时间。
+2. 在“服务商管理”中添加 `EasyPay` 服务商。
+3. 填写以下参数：
+
+```text
+PID：与 EASYPAY_PID 完全一致
+PKey：与 EASYPAY_KEY 完全一致
+API 地址：https://你的支付域名
+支付宝通道 ID：留空；若后台要求必填，填写 alipay
+微信通道 ID：留空
+```
+
+4. 将前台“支付宝”按钮的支付来源选择为“易支付支付宝”。
+5. 不要手工填写 `notify_url` 或 `return_url`，Sub2API 会自动生成并在创建订单时传给本服务。
+
+API 地址只填写服务根域名，不要填写 `/mapi.php` 或 `/api.php`。二维码地址必须是公网可直接访问的静态资源；本项目现有的 `/assets/alipay-qr.png` 默认需要用户 Session，不能直接用作 `EASYPAY_QR_URL`。
