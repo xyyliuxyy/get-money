@@ -4,7 +4,7 @@ export interface EasyPayConfig {
   enabled: boolean;
   pid: string;
   key: string;
-  qrUrl: string;
+  qrContent: string;
 }
 
 function canonicalParams(params: Record<string, string>): string {

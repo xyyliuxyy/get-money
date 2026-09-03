@@ -22,4 +22,4 @@
 健康检查为 `/health`。`recharge_failed` 订单可在后台以相同兑换码安全重试，新的 Idempotency-Key 会生成新的尝试。升级前备份 SQLite，随后执行 `docker compose up -d --build`；迁移会自动执行。生产必须配置 HTTPS，以启用安全 Cookie。
 ## EasyPay compatibility mode
 
-Set `EASYPAY_ENABLED=true`, `EASYPAY_PID`, `EASYPAY_KEY`, and an externally reachable `EASYPAY_QR_URL` to let Sub2API use this service as an EasyPay provider. The adapter exposes `POST /mapi.php`, `POST /api.php`, and `POST /notify.php`. EasyPay approvals remain manual and notify Sub2API instead of using the legacy `create-and-redeem` path.
+Set `EASYPAY_ENABLED=true`, `EASYPAY_PID`, `EASYPAY_KEY`, and `EASYPAY_QR_CONTENT` to let Sub2API use this service as an EasyPay provider. `EASYPAY_QR_CONTENT` must be the text encoded inside your Alipay collection QR, not the image URL. The adapter exposes `POST /mapi.php`, `POST /api.php`, and `POST /notify.php`. EasyPay approvals remain manual and notify Sub2API instead of using the legacy `create-and-redeem` path.

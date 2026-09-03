@@ -10,7 +10,7 @@ const config: AppConfig = {
   sessionSecret: 'test-session-secret-that-is-long-enough', sessionTtlHours: 24, adminUsername: 'admin', adminPasswordHash: 'unused', databasePath: ':memory:', alipayQrImage: '/tmp/qr.png',
   rechargeAmountsFen: [2000], balancePerCny: new Decimal('1'), orderExpireHours: 24, processingStaleMinutes: 15, trustProxyHops: 0,
   rateLimits: { userAuth: { windowMs: 1, max: 1 }, orderCreate: { windowMs: 1, max: 1 }, orderSubmit: { windowMs: 1, max: 1 }, adminLogin: { windowMs: 1, max: 1 } },
-  easyPay: { enabled: true, pid: '10001', key: 'shared', qrUrl: 'https://pay.test/qr.png' },
+  easyPay: { enabled: true, pid: '10001', key: 'shared', qrContent: 'https://qr.alipay.com/example-content' },
 };
 
 function seed() {

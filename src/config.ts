@@ -34,7 +34,7 @@ const environmentSchema = z.object({
   EASYPAY_ENABLED: z.enum(['true', 'false']).default('false'),
   EASYPAY_PID: z.string().default(''),
   EASYPAY_KEY: z.string().default(''),
-  EASYPAY_QR_URL: z.string().default(''),
+  EASYPAY_QR_CONTENT: z.string().default(''),
 });
 
 function parseRechargeAmounts(rechargeAmounts: string): number[] {
@@ -80,10 +80,10 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
     enabled: parsed.EASYPAY_ENABLED === 'true',
     pid: parsed.EASYPAY_PID,
     key: parsed.EASYPAY_KEY,
-    qrUrl: parsed.EASYPAY_QR_URL,
+    qrContent: parsed.EASYPAY_QR_CONTENT,
   };
-  if (easyPay.enabled && (!easyPay.pid || !easyPay.key || !easyPay.qrUrl)) {
-    throw new Error('EasyPay requires EASYPAY_PID, EASYPAY_KEY, and EASYPAY_QR_URL');
+  if (easyPay.enabled && (!easyPay.pid || !easyPay.key || !easyPay.qrContent)) {
+    throw new Error('EasyPay requires EASYPAY_PID, EASYPAY_KEY, and EASYPAY_QR_CONTENT');
   }
 
   return {

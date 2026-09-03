@@ -30,7 +30,7 @@
 **Interfaces:**
 - Produce `EasyPayConfig` with `pid`, `key`, `qrUrl`, and `enabled` fields.
 - Produce `buildEasyPaySign(params: Record<string, string>, key: string): string` and `verifyEasyPaySign(...)`.
-- Extend `AppConfig` with `easyPay` and parse `EASYPAY_ENABLED`, `EASYPAY_PID`, `EASYPAY_KEY`, and `EASYPAY_QR_URL`.
+- Extend `AppConfig` with `easyPay` and parse `EASYPAY_ENABLED`, `EASYPAY_PID`, `EASYPAY_KEY`, and `EASYPAY_QR_CONTENT`.
 
 - [ ] **Step 1: Write the failing tests** for deterministic parameter sorting, exclusion of `sign`/`sign_type`, empty-value exclusion, constant-time verification, and config parsing.
 - [ ] **Step 2: Run `npm test -- tests/easypay-signing.test.ts`** and confirm failure because the utility/config fields do not exist.
@@ -129,4 +129,3 @@
 - Spec coverage: configuration/signing (Task 1), persistence (Task 2), create/query behavior (Task 3), HTTP exposure and QR access (Task 4), admin callback/idempotency (Task 5), and deployment/testing documentation (Task 6) are all covered.
 - Placeholder scan: no TBD/TODO implementation steps; each task names files, interfaces, tests, and commands.
 - Type consistency: `EasyPayConfig`, `DatabaseStore` additions, service inputs/outputs, and router options are defined before consumers.
-

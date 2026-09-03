@@ -99,7 +99,7 @@ export function createEasyPayOrder(input: {
   const existing = input.store.findByExternalOrderNo(outTradeNo);
   if (existing !== null) {
     if (existing.amountFen !== fen || existing.notifyUrl !== notifyUrl) throw new EasyPayError(409, 'Order conflict');
-    return { code: 1, msg: 'success', trade_no: existing.orderNo, qrcode: easyPay.qrUrl };
+    return { code: 1, msg: 'success', trade_no: existing.orderNo, qrcode: easyPay.qrContent };
   }
 
   const now = input.now ?? new Date();
@@ -121,7 +121,7 @@ export function createEasyPayOrder(input: {
     notifyUrl,
     returnUrl,
   });
-  return { code: 1, msg: 'success', trade_no: order.orderNo, qrcode: easyPay.qrUrl };
+  return { code: 1, msg: 'success', trade_no: order.orderNo, qrcode: easyPay.qrContent };
 }
 
 export function queryEasyPayOrder(input: {

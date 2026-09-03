@@ -13,7 +13,7 @@ const config: AppConfig = {
   adminUsername: 'admin', adminPasswordHash: 'unused', databasePath: ':memory:', alipayQrImage: '/tmp/qr.png',
   rechargeAmountsFen: [1000, 2000], balancePerCny: new Decimal('1'), orderExpireHours: 24, processingStaleMinutes: 15,
   trustProxyHops: 0, rateLimits: { userAuth: { windowMs: 1, max: 1 }, orderCreate: { windowMs: 1, max: 1 }, orderSubmit: { windowMs: 1, max: 1 }, adminLogin: { windowMs: 1, max: 1 } },
-  easyPay: { enabled: true, pid: '10001', key: 'shared', qrUrl: 'https://pay.test/qr.png' },
+  easyPay: { enabled: true, pid: '10001', key: 'shared', qrContent: 'https://qr.alipay.com/example-content' },
 };
 
 function appFor(overrides: Partial<AppConfig['easyPay']> = {}) {
@@ -34,7 +34,7 @@ describe('EasyPay routes', () => {
   it('creates and queries an order without a user session', async () => {
     const { app, store } = appFor();
     const created = await request(app).post('/mapi.php').type('form').send(createBody()).expect(200);
-    expect(created.body).toMatchObject({ code: 1, qrcode: 'https://pay.test/qr.png' });
+    expect(created.body).toMatchObject({ code: 1, qrcode: 'https://qr.alipay.com/example-content' });
     const queried = await request(app).post('/api.php').type('form').send({ act: 'order', pid: '10001', key: 'shared', out_trade_no: 'SUB-ROUTE-1' }).expect(200);
     expect(queried.body.trade_status).toBe('WAITING');
     store.close();

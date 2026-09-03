@@ -19,7 +19,7 @@ describe('EasyPay signing', () => {
 describe('EasyPay configuration', () => {
   it('parses the adapter as disabled by default', () => {
     const config = parseConfig({ ...process.env, RECHARGE_AMOUNTS: '10,20' });
-    expect(config.easyPay).toEqual({ enabled: false, pid: '', key: '', qrUrl: '' });
+    expect(config.easyPay).toEqual({ enabled: false, pid: '', key: '', qrContent: '' });
   });
 
   it('parses enabled adapter settings', () => {
@@ -29,13 +29,13 @@ describe('EasyPay configuration', () => {
       EASYPAY_ENABLED: 'true',
       EASYPAY_PID: '10001',
       EASYPAY_KEY: 'shared-key',
-      EASYPAY_QR_URL: 'https://pay.example.test/qr.png',
+      EASYPAY_QR_CONTENT: 'https://qr.alipay.com/example-content',
     });
     expect(config.easyPay).toEqual({
       enabled: true,
       pid: '10001',
       key: 'shared-key',
-      qrUrl: 'https://pay.example.test/qr.png',
+      qrContent: 'https://qr.alipay.com/example-content',
     });
   });
 });

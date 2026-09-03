@@ -10,10 +10,10 @@
 EASYPAY_ENABLED=true
 EASYPAY_PID=10001
 EASYPAY_KEY=请替换为随机共享密钥
-EASYPAY_QR_URL=https://static.example.com/alipay-qr.png
+EASYPAY_QR_CONTENT=https://qr.alipay.com/你的收款码内容
 ```
 
-`EASYPAY_QR_URL` 必须是公网可以直接访问的二维码图片地址。不要填写本项目默认受用户 Session 保护的 `/assets/alipay-qr.png`，除非你已通过 Nginx、对象存储或 CDN 另行公开该文件。
+`EASYPAY_QR_CONTENT` 必须是支付宝收款码图片中实际编码的文本内容，例如 `https://qr.alipay.com/...`。不能填写二维码图片 URL，否则 Sub2API 会把图片 URL 再编码成一个“下载二维码图片”的二维码。原始图片仍可单独用于人工核对，但不会作为 EasyPay 的 `qrcode` 字段返回。
 
 修改后重启：
 
@@ -77,4 +77,3 @@ POST https://你的支付域名/notify.php
 3. 检查本服务管理员后台是否出现 `easypay_alipay` 订单。
 4. 管理员确认后，检查 Sub2API webhook 是否收到 `SUCCESS` 通知。
 5. 确认用户余额只增加一次。
-
