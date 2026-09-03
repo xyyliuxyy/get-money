@@ -19,7 +19,7 @@ describe('EasyPay signing', () => {
 describe('EasyPay configuration', () => {
   it('parses the adapter as disabled by default', () => {
     const config = parseConfig({ ...process.env, RECHARGE_AMOUNTS: '10,20' });
-    expect(config.easyPay).toEqual({ enabled: false, pid: '', key: '', qrContent: '' });
+    expect(config.easyPay).toEqual({ enabled: false, pid: '', key: '', qrContent: '', qrContentsByAmountFen: {} });
   });
 
   it('parses enabled adapter settings', () => {
@@ -30,12 +30,28 @@ describe('EasyPay configuration', () => {
       EASYPAY_PID: '10001',
       EASYPAY_KEY: 'shared-key',
       EASYPAY_QR_CONTENT: 'https://qr.alipay.com/example-content',
+      EASYPAY_QR_CONTENTS: '{"10":"https://qr.alipay.com/ten","20.00":"https://qr.alipay.com/twenty"}',
     });
     expect(config.easyPay).toEqual({
       enabled: true,
       pid: '10001',
       key: 'shared-key',
       qrContent: 'https://qr.alipay.com/example-content',
+      qrContentsByAmountFen: {
+        1000: 'https://qr.alipay.com/ten',
+        2000: 'https://qr.alipay.com/twenty',
+      },
     });
+  });
+
+  it('rejects an EasyPay QR mapping that does not cover every allowed amount', () => {
+    expect(() => parseConfig({
+      ...process.env,
+      RECHARGE_AMOUNTS: '10,20',
+      EASYPAY_ENABLED: 'true',
+      EASYPAY_PID: '10001',
+      EASYPAY_KEY: 'shared-key',
+      EASYPAY_QR_CONTENTS: '{"10":"https://qr.alipay.com/ten"}',
+    })).toThrowError(/EASYPAY_QR_CONTENTS/i);
   });
 });

@@ -11,7 +11,16 @@ const config: AppConfig = {
   adminUsername: 'admin', adminPasswordHash: 'unused', databasePath: ':memory:', alipayQrImage: '/tmp/qr.png',
   rechargeAmountsFen: [1000, 2000], balancePerCny: new Decimal('1'), orderExpireHours: 24, processingStaleMinutes: 15,
   trustProxyHops: 0, rateLimits: { userAuth: { windowMs: 1, max: 1 }, orderCreate: { windowMs: 1, max: 1 }, orderSubmit: { windowMs: 1, max: 1 }, adminLogin: { windowMs: 1, max: 1 } },
-  easyPay: { enabled: true, pid: '10001', key: 'shared', qrContent: 'https://qr.alipay.com/example-content' },
+  easyPay: {
+    enabled: true,
+    pid: '10001',
+    key: 'shared',
+    qrContent: 'https://qr.alipay.com/example-content',
+    qrContentsByAmountFen: {
+      1000: 'https://qr.alipay.com/ten',
+      2000: 'https://qr.alipay.com/twenty',
+    },
+  },
 };
 
 function createParams(outTradeNo = 'SUB-ORDER-1', money = '20.00') {
@@ -23,8 +32,15 @@ describe('EasyPay order service', () => {
   it('creates an order and returns a QR URL', () => {
     const store = createDatabaseStore(':memory:');
     const result = createEasyPayOrder({ config, store, params: createParams() });
-    expect(result).toMatchObject({ code: 1, trade_no: expect.any(String), qrcode: 'https://qr.alipay.com/example-content' });
+    expect(result).toMatchObject({ code: 1, trade_no: expect.any(String), qrcode: 'https://qr.alipay.com/twenty' });
     expect(store.findByExternalOrderNo('SUB-ORDER-1')).toMatchObject({ paymentMethod: 'easypay_alipay', amountFen: 2000 });
+    store.close();
+  });
+
+  it('returns the QR code configured for the selected amount', () => {
+    const store = createDatabaseStore(':memory:');
+    const result = createEasyPayOrder({ config, store, params: createParams('SUB-ORDER-10', '10.00') });
+    expect(result.qrcode).toBe('https://qr.alipay.com/ten');
     store.close();
   });
 

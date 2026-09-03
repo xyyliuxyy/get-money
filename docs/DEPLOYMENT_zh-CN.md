@@ -65,7 +65,7 @@ SUB2API_BASE_URL=https://home.niuniu-ai.top
 SUB2API_ADMIN_API_KEY=admin_replace_with_real_key
 
 ALIPAY_QR_IMAGE=/app/data/alipay-qr.png
-RECHARGE_AMOUNTS=10,20,50,100,200
+RECHARGE_AMOUNTS=10,20,50,100,200,500
 BALANCE_PER_CNY=1
 
 MAX_PENDING_ORDERS_PER_USER=3
@@ -215,7 +215,8 @@ POST /api/v1/admin/redeem-codes/create-and-redeem
 EASYPAY_ENABLED=true
 EASYPAY_PID=10001
 EASYPAY_KEY=change-this-shared-key
-EASYPAY_QR_CONTENT=https://qr.alipay.com/你的收款码内容
+RECHARGE_AMOUNTS=10,20,50,100,200,500
+EASYPAY_QR_CONTENTS={"10":"https://qr.alipay.com/10元经营码内容","20":"https://qr.alipay.com/20元经营码内容","50":"https://qr.alipay.com/50元经营码内容","100":"https://qr.alipay.com/100元经营码内容","200":"https://qr.alipay.com/200元经营码内容","500":"https://qr.alipay.com/500元经营码内容"}
 ```
 
 接口包括 `POST /mapi.php`（创建订单）、`POST /api.php`（查询订单）和
@@ -243,4 +244,4 @@ API 地址：https://你的支付域名
 4. 将前台“支付宝”按钮的支付来源选择为“易支付支付宝”。
 5. 不要手工填写 `notify_url` 或 `return_url`，Sub2API 会自动生成并在创建订单时传给本服务。
 
-API 地址只填写服务根域名，不要填写 `/mapi.php` 或 `/api.php`。`EASYPAY_QR_CONTENT` 必须填写支付宝收款码内部编码的文本，不能填写图片 URL；否则 Sub2API 会把图片 URL 重新编码成下载链接二维码。
+API 地址只填写服务根域名，不要填写 `/mapi.php` 或 `/api.php`。`EASYPAY_QR_CONTENTS` 必须填写每个金额对应的支付宝经营码内部文本，不能填写图片 URL；否则 Sub2API 会把图片 URL 重新编码成下载链接二维码。映射的金额必须与 `RECHARGE_AMOUNTS` 完全一致。本服务会根据 Sub2API 下单金额返回相应二维码。`EASYPAY_QR_CONTENT` 仅作为旧版单二维码兼容配置，不适合固定金额经营码。

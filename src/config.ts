@@ -35,6 +35,7 @@ const environmentSchema = z.object({
   EASYPAY_PID: z.string().default(''),
   EASYPAY_KEY: z.string().default(''),
   EASYPAY_QR_CONTENT: z.string().default(''),
+  EASYPAY_QR_CONTENTS: z.string().default(''),
 });
 
 function parseRechargeAmounts(rechargeAmounts: string): number[] {
@@ -58,6 +59,33 @@ function parseRechargeAmounts(rechargeAmounts: string): number[] {
   return amounts;
 }
 
+function parseEasyPayQrContents(value: string): Record<number, string> {
+  if (!value.trim()) return {};
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error('Invalid EASYPAY_QR_CONTENTS');
+  }
+
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('Invalid EASYPAY_QR_CONTENTS');
+  }
+
+  const contents: Record<number, string> = {};
+  for (const [amount, qrContent] of Object.entries(parsed)) {
+    if (typeof qrContent !== 'string' || !qrContent.trim() || qrContent.trim().length > 2048) {
+      throw new Error('Invalid EASYPAY_QR_CONTENTS');
+    }
+    const amountFen = parseRechargeAmounts(amount)[0];
+    if (contents[amountFen] !== undefined) throw new Error('Invalid EASYPAY_QR_CONTENTS');
+    contents[amountFen] = qrContent.trim();
+  }
+
+  return contents;
+}
+
 function parseBalancePerCny(value: string): Decimal {
   try {
     const balancePerCny = new Decimal(value);
@@ -76,14 +104,27 @@ function rateLimit(windowMs: number, max: number): RateLimitConfig {
 
 export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
   const parsed = environmentSchema.parse(env);
+  const rechargeAmountsFen = parseRechargeAmounts(parsed.RECHARGE_AMOUNTS);
+  const qrContentsByAmountFen = parseEasyPayQrContents(parsed.EASYPAY_QR_CONTENTS);
+  const hasAmountSpecificQrContents = Object.keys(qrContentsByAmountFen).length > 0;
   const easyPay: EasyPayConfig = {
     enabled: parsed.EASYPAY_ENABLED === 'true',
     pid: parsed.EASYPAY_PID,
     key: parsed.EASYPAY_KEY,
     qrContent: parsed.EASYPAY_QR_CONTENT,
+    qrContentsByAmountFen,
   };
-  if (easyPay.enabled && (!easyPay.pid || !easyPay.key || !easyPay.qrContent)) {
-    throw new Error('EasyPay requires EASYPAY_PID, EASYPAY_KEY, and EASYPAY_QR_CONTENT');
+  if (easyPay.enabled && (!easyPay.pid || !easyPay.key || (!easyPay.qrContent && !hasAmountSpecificQrContents))) {
+    throw new Error('EasyPay requires EASYPAY_PID, EASYPAY_KEY, and a QR code configuration');
+  }
+  if (hasAmountSpecificQrContents) {
+    const configuredAmounts = Object.keys(qrContentsByAmountFen).map(Number);
+    if (
+      configuredAmounts.length !== rechargeAmountsFen.length
+      || configuredAmounts.some((amount) => !rechargeAmountsFen.includes(amount))
+    ) {
+      throw new Error('EASYPAY_QR_CONTENTS must cover exactly the configured RECHARGE_AMOUNTS');
+    }
   }
 
   return {
@@ -98,7 +139,7 @@ export function parseConfig(env: NodeJS.ProcessEnv): AppConfig {
     adminPasswordHash: parsed.ADMIN_PASSWORD_HASH,
     databasePath: parsed.DATABASE_PATH,
     alipayQrImage: parsed.ALIPAY_QR_IMAGE,
-    rechargeAmountsFen: parseRechargeAmounts(parsed.RECHARGE_AMOUNTS),
+    rechargeAmountsFen,
     balancePerCny: parseBalancePerCny(parsed.BALANCE_PER_CNY),
     orderExpireHours: parsed.ORDER_EXPIRE_HOURS,
     processingStaleMinutes: parsed.PROCESSING_STALE_MINUTES,

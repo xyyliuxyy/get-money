@@ -5,6 +5,7 @@ export interface EasyPayConfig {
   pid: string;
   key: string;
   qrContent: string;
+  qrContentsByAmountFen: Record<number, string>;
 }
 
 function canonicalParams(params: Record<string, string>): string {

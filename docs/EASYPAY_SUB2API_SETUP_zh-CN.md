@@ -10,10 +10,13 @@
 EASYPAY_ENABLED=true
 EASYPAY_PID=10001
 EASYPAY_KEY=请替换为随机共享密钥
-EASYPAY_QR_CONTENT=https://qr.alipay.com/你的收款码内容
+RECHARGE_AMOUNTS=10,20,50,100,200,500
+EASYPAY_QR_CONTENTS={"10":"https://qr.alipay.com/10元经营码内容","20":"https://qr.alipay.com/20元经营码内容","50":"https://qr.alipay.com/50元经营码内容","100":"https://qr.alipay.com/100元经营码内容","200":"https://qr.alipay.com/200元经营码内容","500":"https://qr.alipay.com/500元经营码内容"}
 ```
 
-`EASYPAY_QR_CONTENT` 必须是支付宝收款码图片中实际编码的文本内容，例如 `https://qr.alipay.com/...`。不能填写二维码图片 URL，否则 Sub2API 会把图片 URL 再编码成一个“下载二维码图片”的二维码。原始图片仍可单独用于人工核对，但不会作为 EasyPay 的 `qrcode` 字段返回。
+`EASYPAY_QR_CONTENTS` 是金额到二维码内容的 JSON 映射。键是人民币元金额，值必须是支付宝经营码图片中实际编码的文本内容，例如 `https://qr.alipay.com/...`。它必须与 `RECHARGE_AMOUNTS` 完全一致：每个允许金额各有一张固定金额经营码，不能遗漏或添加未允许的金额。
+
+不能填写二维码图片 URL，否则 Sub2API 会把图片 URL 再编码成一个“下载二维码图片”的二维码。原始图片仍可单独用于人工核对，但不会作为 EasyPay 的 `qrcode` 字段返回。旧的 `EASYPAY_QR_CONTENT` 仍可使用，但只会为所有金额返回同一张二维码，不适合固定金额经营码。
 
 修改后重启：
 
@@ -55,7 +58,7 @@ API 地址只填写服务根域名，不要填写 `/mapi.php` 或 `/api.php`。�
 
 ```text
 Sub2API 创建订单
-→ 本服务 /mapi.php 返回个人支付宝二维码
+→ 本服务 /mapi.php 按订单金额返回对应的支付宝经营码
 → 用户扫码付款
 → 管理员在本项目 /admin 确认到账
 → 本服务回调 Sub2API

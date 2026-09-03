@@ -75,6 +75,10 @@ function orderMoney(order: Order): string {
   return new Decimal(order.amountFen).div(100).toFixed(2);
 }
 
+function qrContentForAmount(easyPay: NonNullable<AppConfig['easyPay']>, amountFen: number): string {
+  return easyPay.qrContentsByAmountFen[amountFen] ?? easyPay.qrContent;
+}
+
 export function createEasyPayOrder(input: {
   config: AppConfig;
   store: DatabaseStore;
@@ -99,7 +103,7 @@ export function createEasyPayOrder(input: {
   const existing = input.store.findByExternalOrderNo(outTradeNo);
   if (existing !== null) {
     if (existing.amountFen !== fen || existing.notifyUrl !== notifyUrl) throw new EasyPayError(409, 'Order conflict');
-    return { code: 1, msg: 'success', trade_no: existing.orderNo, qrcode: easyPay.qrContent };
+    return { code: 1, msg: 'success', trade_no: existing.orderNo, qrcode: qrContentForAmount(easyPay, fen) };
   }
 
   const now = input.now ?? new Date();
@@ -121,7 +125,7 @@ export function createEasyPayOrder(input: {
     notifyUrl,
     returnUrl,
   });
-  return { code: 1, msg: 'success', trade_no: order.orderNo, qrcode: easyPay.qrContent };
+  return { code: 1, msg: 'success', trade_no: order.orderNo, qrcode: qrContentForAmount(easyPay, fen) };
 }
 
 export function queryEasyPayOrder(input: {
